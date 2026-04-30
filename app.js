@@ -43,7 +43,25 @@ document.addEventListener("DOMContentLoaded", function () {
   function findClient(x){ return state.clients.find(c=>c.id===x || String(c.code).toLowerCase()===String(x).toLowerCase()); }
   function priceListName(id){ return state.priceLists[id]?.name || "Lista"; }
   function label(t){ return {venta:"Venta cobrada",fiado:"Fiado",pago:"Pago recibido",no_compra:"No compró / no estaba"}[t] || t; }
-  function balance(id){ return state.moves.filter(m=>m.clientId===id).reduce((s,m)=>s+(m.type==="fiado"?Number(m.amount||0):(m.type==="pago"||m.type==="venta"?-Number(m.amount||0):0)),0); }
+  function moveSaleValue(m){
+    if(m.type==="venta" || m.type==="fiado"){
+      return Number(m.saleValue ?? m.amount ?? 0);
+    }
+    return 0;
+  }
+  function balance(id){
+    return state.moves.filter(m=>m.clientId===id).reduce((s,m)=>{
+      const amount = Number(m.amount || 0);
+      if(m.type==="fiado") return s + Number(m.saleValue ?? amount);
+      if(m.type==="pago") return s - amount;
+      if(m.type==="venta"){
+        const saleValue = Number(m.saleValue ?? amount);
+        const overpay = Math.max(0, amount - saleValue);
+        return s - overpay;
+      }
+      return s;
+    },0);
+  }
   function debt(id){ return Math.max(0,balance(id)); }
   function credit(id){ return Math.max(0,-balance(id)); }
   function balanceLabel(id){ if(credit(id)>0) return `<span class="credit">Saldo a favor: ${money(credit(id))}</span>`; if(debt(id)>0) return `<span class="debt">${money(debt(id))}</span>`; return `<span class="ok">${money(0)}</span>`; }
@@ -101,18 +119,18 @@ document.addEventListener("DOMContentLoaded", function () {
     if(!c) return;
     if(el("movType").value==="pago"){ el("movProduct").value="Pago / Saldo"; el("priceHint").textContent=`${c.name} · Pago de deuda manual. Deuda actual: ${money(debt(c.id))}${credit(c.id)>0 ? " · Saldo a favor: "+money(credit(c.id)) : ""}`; return; }
     const total=getUnitPrice(c.id,product)*qty;
-    el("priceHint").textContent=`${c.name} · ${priceListName(c.priceList)} · ${product}: ${money(getUnitPrice(c.id,product))} x ${qty} = ${money(total)}`;
+    el("priceHint").textContent=`${c.name} · ${priceListName(c.priceList)} · ${product}: ${money(getUnitPrice(c.id,product))} x ${qty} = ${money(total)}. Si es venta cobrada, cargá lo que pagó; si paga exacto no genera saldo a favor.`;
     if(el("movType").value!=="no_compra") el("movAmount").value=total;
   }
 
   function renderDashboard(){
     const today=todayStr();
     const todayMoves=state.moves.filter(m=>m.date===today);
-    el("kpiSales").textContent=money(todayMoves.filter(m=>m.type==="venta"||m.type==="fiado").reduce((s,m)=>s+Number(m.amount||0),0));
+    el("kpiSales").textContent=money(todayMoves.filter(m=>m.type==="venta"||m.type==="fiado").reduce((s,m)=>s+Number(m.saleValue ?? m.amount ?? 0),0));
     el("kpiPaid").textContent=money(todayMoves.filter(m=>m.type==="venta"||m.type==="pago").reduce((s,m)=>s+Number(m.amount||0),0));
     el("kpiDebt").textContent=money(state.clients.reduce((s,c)=>s+debt(c.id),0));
     el("kpiCredit").textContent=money(state.clients.reduce((s,c)=>s+credit(c.id),0));
-    const prod={}; todayMoves.filter(m=>m.type==="venta"||m.type==="fiado").forEach(m=>{prod[m.product]=prod[m.product]||{qty:0,total:0};prod[m.product].qty+=Number(m.qty||1);prod[m.product].total+=Number(m.amount||0);});
+    const prod={}; todayMoves.filter(m=>m.type==="venta"||m.type==="fiado").forEach(m=>{prod[m.product]=prod[m.product]||{qty:0,total:0};prod[m.product].qty+=Number(m.qty||1);prod[m.product].total+=Number(m.saleValue ?? m.amount ?? 0);});
     el("todayProducts").innerHTML=table(["Producto","Cantidad","Total"],Object.entries(prod).map(([p,v])=>[p,v.qty,money(v.total)]),"Todavía no cargaste ventas hoy.");
     el("latestMovements").innerHTML=state.moves.slice().reverse().slice(0,8).map(moveRow).join("")||"<p class='muted'>Sin movimientos.</p>";
   }
@@ -151,11 +169,11 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function renderSales(){
     const iso=el("salesDate").value||todayISO(), ms=state.moves.filter(m=>sameDate(m.date,iso)), sold=ms.filter(m=>m.type==="venta"||m.type==="fiado"), paid=ms.filter(m=>m.type==="venta"||m.type==="pago");
-    el("salesTotal").textContent=money(sold.reduce((s,m)=>s+Number(m.amount||0),0));
+    el("salesTotal").textContent=money(sold.reduce((s,m)=>s+Number(m.saleValue ?? m.amount ?? 0),0));
     el("salesPaid").textContent=money(paid.reduce((s,m)=>s+Number(m.amount||0),0));
-    el("salesDebt").textContent=money(ms.filter(m=>m.type==="fiado").reduce((s,m)=>s+Number(m.amount||0),0));
+    el("salesDebt").textContent=money(ms.filter(m=>m.type==="fiado").reduce((s,m)=>s+Number(m.saleValue ?? m.amount ?? 0),0));
     el("salesMoves").textContent=ms.length;
-    const prod={}, pays={}; sold.forEach(m=>{prod[m.product]=prod[m.product]||{qty:0,total:0};prod[m.product].qty+=Number(m.qty||1);prod[m.product].total+=Number(m.amount||0);}); paid.forEach(m=>{pays[m.pay]=Number(pays[m.pay]||0)+Number(m.amount||0);});
+    const prod={}, pays={}; sold.forEach(m=>{prod[m.product]=prod[m.product]||{qty:0,total:0};prod[m.product].qty+=Number(m.qty||1);prod[m.product].total+=Number(m.saleValue ?? m.amount ?? 0);}); paid.forEach(m=>{pays[m.pay]=Number(pays[m.pay]||0)+Number(m.amount||0);});
     el("salesProducts").innerHTML=table(["Producto","Cantidad","Total"],Object.entries(prod).map(([p,v])=>[p,v.qty,money(v.total)]),"Sin ventas para esta fecha.");
     el("salesPays").innerHTML=table(["Medio","Total cobrado"],Object.entries(pays).map(([p,t])=>[p,money(t)]),"Sin cobros para esta fecha.");
     el("salesTable").innerHTML=table(["Fecha","Cliente","Tipo","Producto","Cant.","Medio","Importe","Nota","Acción"],ms.map(m=>{const c=client(m.clientId)||{};return [m.date,`${c.code||""} ${c.name||""}`,label(m.type),m.product,m.qty||1,m.pay||"-",money(m.amount),m.note||"",canDeleteMove(m)?`<button class="move-delete" data-delmove="${m.id}">Eliminar</button>`:""]}),"Sin movimientos.");
@@ -171,7 +189,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function moveRow(m){
     const c=client(m.clientId)||{};
     const can=canDeleteMove(m);
-    return `<div class="move"><div><b>${label(m.type)}</b><small>${c.code?c.code+" · ":""}${c.name||""} · ${m.date} · ${m.qty||1} x ${m.product} · ${m.pay||"-"}${m.note?" · "+m.note:""}</small></div><div><b class="${m.type==="fiado"?"debt":(m.type==="pago"||m.type==="venta"?"credit":"")}">${money(m.amount)}</b>${can?`<button class="move-delete" data-delmove="${m.id}">Eliminar</button>`:""}</div></div>`;
+    const saleInfo = (m.type==="venta" && Number(m.amount||0) !== Number(m.saleValue ?? m.amount ?? 0)) ? ` · venta ${money(m.saleValue ?? 0)} / pagó ${money(m.amount)}` : "";
+    return `<div class="move"><div><b>${label(m.type)}</b><small>${c.code?c.code+" · ":""}${c.name||""} · ${m.date} · ${m.qty||1} x ${m.product} · ${m.pay||"-"}${saleInfo}${m.note?" · "+m.note:""}</small></div><div><b class="${m.type==="fiado"?"debt":(m.type==="pago"||m.type==="venta"?"credit":"")}">${money(m.amount)}</b>${can?`<button class="move-delete" data-delmove="${m.id}">Eliminar</button>`:""}</div></div>`;
   }
   function table(headers, rows, empty){
     return `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${headers.length}">${empty}</td></tr>`}</tbody></table>`;
@@ -183,7 +202,24 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function addMovement(){
-    state.moves.push({id:uid(),clientId:el("movClient").value,date:todayStr(),type:el("movType").value,product:el("movProduct").value,qty:Number(el("movQty").value||1),pay:el("movPay").value,amount:Number(el("movAmount").value||0),note:el("movNote").value});
+    const movType = el("movType").value;
+    const movClientId = el("movClient").value;
+    const movProduct = el("movProduct").value;
+    const movQty = Number(el("movQty").value||1);
+    const enteredAmount = Number(el("movAmount").value||0);
+    const calculatedSaleValue = (movType==="venta" || movType==="fiado") ? getUnitPrice(movClientId, movProduct) * movQty : 0;
+    state.moves.push({
+      id:uid(),
+      clientId:movClientId,
+      date:todayStr(),
+      type:movType,
+      product:movProduct,
+      qty:movQty,
+      pay:el("movPay").value,
+      amount:enteredAmount,
+      saleValue: calculatedSaleValue || enteredAmount,
+      note:el("movNote").value
+    });
     save(); el("movAmount").value=""; el("movNote").value=""; el("movQty").value=1; renderAll(); updatePriceHint(); alert("Movimiento guardado");
   }
   function addClient(){
