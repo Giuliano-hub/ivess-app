@@ -34,3 +34,11 @@ table{width:100%;border-collapse:collapse}th,td{padding:13px;border-bottom:1px s
   .cart-item{grid-template-columns:1fr 50px 85px 34px;font-size:13px}
   .route-mode-grid{grid-template-columns:1fr}
 }
+
+.payment-list{border:1px solid var(--line);background:#fff;border-radius:16px;padding:12px;margin:10px 0}
+.payment-row{display:grid;grid-template-columns:1fr 130px 36px;gap:8px;align-items:center;margin-bottom:8px}
+.payment-row:last-child{margin-bottom:0}
+.payment-row button,.add-pay-btn{border:1px solid var(--line);background:#f8fafc;border-radius:10px;padding:10px;font-weight:900;cursor:pointer}
+.payment-row .remove-pay{background:#fff1f0;color:#c0362c;border-color:#ffd0cc}
+.route-calc{background:#f8fbff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:10px 0;line-height:1.55}
+@media(max-width:700px){.payment-row{grid-template-columns:1fr 100px 34px}}

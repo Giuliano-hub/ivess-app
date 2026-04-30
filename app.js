@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const products = ["20L","20L Bajo Sodio","12L","12L Bajo Sodio","Soda vidrio","Soda plástico","Pago / Saldo","Otro"];
   const users = {
     giuli:{pass:"ivess2026",role:"admin",name:"Giuli"},
-    ivan:{pass:"reparto2026",role:"repartidor",name:"Iván"}
+    "160":{pass:"160",role:"repartidor",name:"Iván"}
   };
   const el = id => document.getElementById(id);
   const money = n => new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(Number(n||0));
@@ -35,9 +35,35 @@ document.addEventListener("DOMContentLoaded", function () {
   state.priceLists = state.priceLists || defaultPriceLists;
   state.clients = (state.clients||[]).map(c=>({code:"",priceList:"1",cooler:"no",coolerDesc:"",note:"",...c}));
   state.moves = (state.moves||[]).map(m=>({qty:1,pay:"Efectivo",note:"",...m}));
-  let currentUser = JSON.parse(sessionStorage.getItem("ivessUser") || "null");
+  const SESSION_MS = 2 * 60 * 60 * 1000; // 2 horas de inactividad
+  function loadSession(){
+    const raw = localStorage.getItem("ivessUserSession");
+    if(!raw) return null;
+    try{
+      const s = JSON.parse(raw);
+      if(Date.now() - Number(s.lastActivity || 0) > SESSION_MS){
+        localStorage.removeItem("ivessUserSession");
+        return null;
+      }
+      s.lastActivity = Date.now();
+      localStorage.setItem("ivessUserSession", JSON.stringify(s));
+      return s.user;
+    }catch(e){
+      localStorage.removeItem("ivessUserSession");
+      return null;
+    }
+  }
+  function saveSession(user){
+    localStorage.setItem("ivessUserSession", JSON.stringify({user, lastActivity: Date.now()}));
+  }
+  function touchSession(){
+    if(!currentUser) return;
+    saveSession(currentUser);
+  }
+  let currentUser = loadSession();
   let routeModeIndex = Number(sessionStorage.getItem("ivessRouteModeIndex") || 0);
   let routeCart = JSON.parse(sessionStorage.getItem("ivessRouteCart") || "[]");
+  let routePayments = JSON.parse(sessionStorage.getItem("ivessRoutePayments") || '[{"pay":"Efectivo","amount":0}]');
   const save = () => localStorage.setItem("ivessStableV5", JSON.stringify(state));
   function isAdmin(){ return currentUser && currentUser.role==="admin"; }
   function isIvan(){ return currentUser && currentUser.role==="repartidor"; }
@@ -83,10 +109,10 @@ document.addEventListener("DOMContentLoaded", function () {
   function showApp(){ el("loginScreen").classList.add("hidden"); el("adminApp").classList.remove("hidden"); }
   function login(){
     const u=(el("loginUser").value||"").trim().toLowerCase(), p=el("loginPass").value||"";
-    if(users[u] && users[u].pass===p){ currentUser={user:u,...users[u]}; sessionStorage.setItem("ivessUser",JSON.stringify(currentUser)); showApp(); initAdmin(); return; }
+    if(users[u] && users[u].pass===p){ currentUser={user:u,...users[u]}; saveSession(currentUser); showApp(); initAdmin(); return; }
     el("loginError").textContent="Usuario o clave incorrectos.";
   }
-  function logout(){ sessionStorage.removeItem("ivessUser"); currentUser=null; showLogin(); }
+  function logout(){ localStorage.removeItem("ivessUserSession"); currentUser=null; showLogin(); }
 
   function fillBase(){
     ["routeDay","sheetDay","clientDay"].forEach(id=>{ el(id).innerHTML=days.map(d=>`<option>${d}</option>`).join(""); });
@@ -155,6 +181,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function saveRouteModeState(){
     sessionStorage.setItem("ivessRouteModeIndex", String(routeModeIndex));
     sessionStorage.setItem("ivessRouteCart", JSON.stringify(routeCart));
+    sessionStorage.setItem("ivessRoutePayments", JSON.stringify(routePayments));
   }
   function addQuickProduct(product){
     const c = getRouteModeClients()[routeModeIndex];
@@ -186,41 +213,72 @@ document.addEventListener("DOMContentLoaded", function () {
   function routeCartTotal(){
     return routeCart.reduce((s,i)=>s+Number(i.total||0),0);
   }
+  function routePaidTotal(){
+    return routePayments.reduce((s,p)=>s+Number(p.amount||0),0);
+  }
+  function addRoutePayment(){
+    routePayments.push({pay:"Efectivo", amount:0});
+    saveRouteModeState();
+    renderRouteMode();
+  }
+  function removeRoutePayment(idx){
+    if(routePayments.length <= 1) return;
+    routePayments.splice(idx,1);
+    saveRouteModeState();
+    renderRouteMode();
+  }
+  function updateRoutePayment(idx, field, value){
+    if(!routePayments[idx]) return;
+    routePayments[idx][field] = field === "amount" ? Number(value || 0) : value;
+    saveRouteModeState();
+    renderRouteMode();
+  }
   function saveRouteCurrentIfNeeded(){
     const c = getRouteModeClients()[routeModeIndex];
     if(!c) return;
-    const op = el("routeModeType") ? el("routeModeType").value : "venta";
-    const pay = el("routeModePay") ? el("routeModePay").value : "Efectivo";
     const note = el("routeModeNote") ? el("routeModeNote").value : "";
     const total = routeCartTotal();
-    if(op === "no_compra"){
+    const paid = routePaidTotal();
+
+    if(el("routeModeNoCompra") && el("routeModeNoCompra").checked){
       state.moves.push({id:uid(),clientId:c.id,date:todayStr(),type:"no_compra",product:"-",qty:0,pay:"-",amount:0,saleValue:0,note:note || "No compró / no estaba"});
-    } else if(op === "pago"){
-      const amount = Number(el("routeModeManualAmount")?.value || 0);
-      if(amount > 0){
-        state.moves.push({id:uid(),clientId:c.id,date:todayStr(),type:"pago",product:"Pago / Saldo",qty:1,pay,amount,saleValue:0,note});
-      }
-    } else {
-      if(routeCart.length > 0){
-        routeCart.forEach(item=>{
-          state.moves.push({
-            id:uid(),
-            clientId:c.id,
-            date:todayStr(),
-            type:op,
-            product:item.product,
-            qty:Number(item.qty||1),
-            pay,
-            amount:Number(item.total||0),
-            saleValue:Number(item.total||0),
-            note
-          });
+    } else if(total > 0 || paid > 0){
+      // 1) Guarda productos como venta informativa por su valor real.
+      routeCart.forEach(item=>{
+        state.moves.push({
+          id:uid(),
+          clientId:c.id,
+          date:todayStr(),
+          type:"venta",
+          product:item.product,
+          qty:Number(item.qty||1),
+          pay:"Venta",
+          amount:Number(item.total||0),
+          saleValue:Number(item.total||0),
+          note:note || "Venta modo reparto"
         });
-      }
+      });
+
+      // 2) Guarda cada pago real. Si pagó menos, queda deuda; si pagó más, saldo a favor.
+      routePayments.filter(p=>Number(p.amount||0)>0).forEach(p=>{
+        state.moves.push({
+          id:uid(),
+          clientId:c.id,
+          date:todayStr(),
+          type:"pago",
+          product:"Pago / Saldo",
+          qty:1,
+          pay:p.pay,
+          amount:Number(p.amount||0),
+          saleValue:0,
+          note:note || "Pago modo reparto"
+        });
+      });
     }
+
     save();
     routeCart = [];
-    if(el("routeModeManualAmount")) el("routeModeManualAmount").value = "";
+    routePayments = [{pay:"Efectivo", amount:0}];
     if(el("routeModeNote")) el("routeModeNote").value = "";
     saveRouteModeState();
   }
@@ -267,30 +325,36 @@ document.addEventListener("DOMContentLoaded", function () {
           ${cartHtml}
           <div class="route-mode-total">Total: ${money(routeCartTotal())}</div>
         </div>
+        <div class="payment-list">
+          <h3>Pagos recibidos</h3>
+          ${routePayments.map((p,idx)=>`
+            <div class="payment-row">
+              <select data-pay-method="${idx}">
+                <option ${p.pay==="Efectivo"?"selected":""}>Efectivo</option>
+                <option ${p.pay==="Mercado Pago"?"selected":""}>Mercado Pago</option>
+                <option ${p.pay==="Transferencia"?"selected":""}>Transferencia</option>
+              </select>
+              <input type="number" value="${p.amount || ""}" placeholder="Monto" data-pay-amount="${idx}">
+              <button class="remove-pay" data-pay-remove="${idx}">×</button>
+            </div>`).join("")}
+          <button class="add-pay-btn" id="addPayBtn">+ Agregar otro medio</button>
+        </div>
+        <div class="route-calc">
+          Total vendido: <b>${money(routeCartTotal())}</b><br>
+          Total cobrado: <b>${money(routePaidTotal())}</b><br>
+          ${routeCartTotal() > routePaidTotal() ? `Queda fiado: <span class="debt">${money(routeCartTotal()-routePaidTotal())}</span>` : ""}
+          ${routePaidTotal() > routeCartTotal() ? `Saldo a favor: <span class="credit">${money(routePaidTotal()-routeCartTotal())}</span>` : ""}
+          ${routePaidTotal() === routeCartTotal() ? `<span class="ok">Cuenta en cero</span>` : ""}
+        </div>
         <div class="route-mode-grid">
-          <label>Tipo
-            <select id="routeModeType">
-              <option value="venta">Venta cobrada</option>
-              <option value="fiado">Fiado</option>
-              <option value="pago">Pago de deuda</option>
-              <option value="no_compra">No compró / no estaba</option>
-            </select>
-          </label>
-          <label>Medio de pago
-            <select id="routeModePay">
-              <option>Efectivo</option>
-              <option>Mercado Pago</option>
-              <option>Transferencia</option>
-            </select>
-          </label>
-          <label>Pago manual / parcial
-            <input id="routeModeManualAmount" type="number" placeholder="Solo para pago de deuda">
-          </label>
-          <label>Nota
+          <label class="wide">Nota
             <input id="routeModeNote" placeholder="Observación">
           </label>
+          <label>No compró / no estaba
+            <input id="routeModeNoCompra" type="checkbox">
+          </label>
         </div>
-        <div class="small-note">Al tocar “Siguiente” se guarda automáticamente lo cargado para este cliente.</div>
+        <div class="small-note">Al tocar “Siguiente” se guarda automáticamente: productos vendidos + pagos recibidos. La diferencia queda como fiado o saldo a favor.</div>
         <div class="route-nav">
           <button class="prev" id="routePrevBtn">← Anterior</button>
           <button class="next" id="routeNextBtn">Siguiente →</button>
@@ -299,6 +363,10 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-quick-product]").forEach(b=>b.onclick=()=>addQuickProduct(b.dataset.quickProduct));
     document.querySelectorAll("[data-cart-del]").forEach(b=>b.onclick=()=>removeCartItem(Number(b.dataset.cartDel)));
     document.querySelectorAll("[data-cart-qty]").forEach(inp=>inp.onchange=()=>updateCartQty(Number(inp.dataset.cartQty), inp.value));
+    document.querySelectorAll("[data-pay-method]").forEach(sel=>sel.onchange=()=>updateRoutePayment(Number(sel.dataset.payMethod), "pay", sel.value));
+    document.querySelectorAll("[data-pay-amount]").forEach(inp=>inp.oninput=()=>updateRoutePayment(Number(inp.dataset.payAmount), "amount", inp.value));
+    document.querySelectorAll("[data-pay-remove]").forEach(btn=>btn.onclick=()=>removeRoutePayment(Number(btn.dataset.payRemove)));
+    el("addPayBtn").onclick = addRoutePayment;
     el("routePrevBtn").onclick = routePrev;
     el("routeNextBtn").onclick = routeNext;
   }
@@ -423,15 +491,20 @@ document.addEventListener("DOMContentLoaded", function () {
     el("adminApp").classList.add("hidden"); el("loginScreen").classList.add("hidden"); el("publicPortal").classList.remove("hidden"); el("publicPortalContent").innerHTML=portalHTML(code,true); return true;
   }
 
+  
+  ["click","keydown","input","change","touchstart"].forEach(evt=>{
+    document.addEventListener(evt, touchSession, {passive:true});
+  });
+
   document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>openView(b.dataset.view));
   ["routeDay","routeSort","routeSearch","clientSearch","clientSort","salesDate","portalClient"].forEach(id=>el(id).addEventListener("input",renderAll));
-  ["sheetDay","sheetSearch"].forEach(id=>el(id).addEventListener("input",()=>{ routeModeIndex=0; routeCart=[]; saveRouteModeState(); renderAll(); }));
+  ["sheetDay","sheetSearch"].forEach(id=>el(id).addEventListener("input",()=>{ routeModeIndex=0; routeCart=[]; routePayments=[{pay:"Efectivo",amount:0}]; saveRouteModeState(); renderAll(); }));
   ["clientDay","clientInsertAfter"].forEach(id=>el(id).addEventListener("change",()=>{fillInsertAfter();renderAll();}));
   ["movClient","movProduct","movQty","movType"].forEach(id=>el(id).addEventListener("input",updatePriceHint));
   el("loginBtn").onclick=login; el("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")login();}); el("logoutBtn").onclick=logout;
   el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value));
   el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();};
-  el("startRouteModeBtn").onclick=()=>{ routeModeIndex=0; routeCart=[]; saveRouteModeState(); renderAll(); };
+  el("startRouteModeBtn").onclick=()=>{ routeModeIndex=0; routeCart=[]; routePayments=[{pay:"Efectivo",amount:0}]; saveRouteModeState(); renderAll(); };
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };
 
   save();
