@@ -428,7 +428,10 @@ document.addEventListener("DOMContentLoaded", function () {
       updateRoutePayment(Number(idx), "mode", mode);
     });
     document.querySelectorAll("[data-pay-method]").forEach(sel=>sel.onchange=()=>updateRoutePayment(Number(sel.dataset.payMethod), "pay", sel.value));
-    document.querySelectorAll("[data-pay-amount]").forEach(inp=>inp.oninput=()=>updateRoutePayment(Number(inp.dataset.payAmount), "amount", inp.value));
+    document.querySelectorAll("[data-pay-amount]").forEach(inp=>{
+      inp.onchange=()=>updateRoutePayment(Number(inp.dataset.payAmount), "amount", inp.value);
+      inp.onblur=()=>updateRoutePayment(Number(inp.dataset.payAmount), "amount", inp.value);
+    });
     document.querySelectorAll("[data-pay-remove]").forEach(btn=>btn.onclick=()=>removeRoutePayment(Number(btn.dataset.payRemove)));
     el("addPayBtn").onclick = addRoutePayment;
     el("routePrevBtn").onclick = routePrev;
