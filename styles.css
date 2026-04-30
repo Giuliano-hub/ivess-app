@@ -42,3 +42,8 @@ table{width:100%;border-collapse:collapse}th,td{padding:13px;border-bottom:1px s
 .payment-row .remove-pay{background:#fff1f0;color:#c0362c;border-color:#ffd0cc}
 .route-calc{background:#f8fbff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:10px 0;line-height:1.55}
 @media(max-width:700px){.payment-row{grid-template-columns:1fr 100px 34px}}
+
+.payment-mode{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.payment-mode button{border:1px solid var(--line);background:#f8fafc;border-radius:10px;padding:9px;font-weight:900;cursor:pointer}
+.payment-mode button.active{background:#e8f3ff;color:#075ca8;border-color:#8ec5ff}
+.payment-help{font-size:12px;color:var(--muted);margin-top:6px}
