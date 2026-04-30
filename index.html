@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IVESS Control de Rutas V3</title>
+  <title>IVESS Control de Rutas</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,12 +11,12 @@
     <div class="login-card">
       <div class="login-logo">IV</div>
       <h1>IVESS</h1>
-      <p>Ingresá para acceder al sistema de reparto</p>
-      <label>Usuario<input id="loginUser" placeholder="Usuario"></label>
-      <label>Clave<input id="loginPass" type="password" placeholder="Clave"></label>
+      <p>Sistema de reparto, ventas y fiados</p>
+      <label>Usuario<input id="loginUser" autocomplete="username"></label>
+      <label>Clave<input id="loginPass" type="password" autocomplete="current-password"></label>
       <button class="primary" id="loginBtn">Ingresar</button>
       <div id="loginError" class="login-error"></div>
-      <small>Clientes: ingresan directo desde su link individual.</small>
+      <small>Los clientes entran directo desde su link individual.</small>
     </div>
   </div>
 
@@ -43,8 +43,8 @@
       </nav>
 
       <div class="side-card">
-        <span>Demo local</span>
-        <p>Los datos quedan guardados en este navegador.</p>
+        <span id="roleLabel">Sesión</span>
+        <p>Demo local: hasta conectar base de datos, guarda en este navegador.</p>
         <button id="resetDemoBtn">Reiniciar demo</button>
         <button id="logoutBtn" class="logout-btn">Cerrar sesión</button>
       </div>
@@ -54,7 +54,7 @@
       <header class="header">
         <div>
           <h2 id="viewTitle">Panel general</h2>
-          <p id="viewSubtitle">Resumen de ventas, cobros, fiados y productos vendidos.</p>
+          <p id="viewSubtitle">Resumen de ventas, cobros y fiados.</p>
         </div>
         <div class="date-pill" id="todayLabel"></div>
       </header>
@@ -64,27 +64,11 @@
           <div class="kpi"><span>Vendido hoy</span><strong id="kpiSales">$0</strong></div>
           <div class="kpi"><span>Cobrado hoy</span><strong id="kpiPaid">$0</strong></div>
           <div class="kpi danger"><span>Fiado total</span><strong id="kpiDebt">$0</strong></div>
-          <div class="kpi"><span>Clientes</span><strong id="kpiClients">0</strong></div>
+          <div class="kpi creditk"><span>Saldo a favor</span><strong id="kpiCredit">$0</strong></div>
         </div>
-
         <div class="two-cols">
-          <div class="card">
-            <div class="card-head"><h3>Qué se vendió hoy</h3></div>
-            <div id="todayProducts"></div>
-          </div>
-
-          <div class="card">
-            <div class="card-head"><h3>Últimos movimientos</h3></div>
-            <div id="latestMovements"></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <h3>Ruta de hoy</h3>
-            <select id="dashDay"></select>
-          </div>
-          <div id="dashRoute"></div>
+          <div class="card"><div class="card-head"><h3>Qué se vendió hoy</h3></div><div id="todayProducts"></div></div>
+          <div class="card"><div class="card-head"><h3>Últimos movimientos</h3></div><div id="latestMovements"></div></div>
         </div>
       </section>
 
@@ -93,7 +77,7 @@
           <select id="routeDay"></select>
           <select id="routeSort">
             <option value="order">Orden de atención</option>
-            <option value="code">Código de cliente</option>
+            <option value="code">Código</option>
             <option value="name">Nombre</option>
             <option value="debt">Mayor fiado</option>
           </select>
@@ -113,8 +97,7 @@
       <section id="cargar" class="view">
         <div class="card form-card">
           <h3>Cargar venta, pago o fiado</h3>
-          <p class="muted">Al elegir cliente y producto, el precio se completa solo según su lista.</p>
-
+          <p class="muted">Pago de deuda queda manual para pagos parciales.</p>
           <div class="form-grid">
             <label>Cliente<select id="movClient"></select></label>
             <label>Tipo
@@ -128,15 +111,16 @@
             <label>Producto<select id="movProduct"></select></label>
             <label>Medio de pago
               <select id="movPay">
-                <option>Efectivo</option><option>Mercado Pago</option><option>Transferencia</option>
+                <option>Efectivo</option>
+                <option>Mercado Pago</option>
+                <option>Transferencia</option>
               </select>
             </label>
             <label>Cantidad<input id="movQty" type="number" min="1" value="1"></label>
             <label>Importe total<input id="movAmount" type="number" placeholder="Precio automático"></label>
-            <label class="wide">Observación<input id="movNote" placeholder="Ej: paga deuda anterior"></label>
+            <label class="wide">Observación<input id="movNote" placeholder="Ej: pago parcial / se fía 1 bidón"></label>
           </div>
-
-          <div class="price-hint" id="priceHint">Seleccioná cliente y producto para ver precio.</div>
+          <div id="priceHint" class="price-hint"></div>
           <button class="primary" id="saveMovementBtn">Guardar movimiento</button>
         </div>
       </section>
@@ -144,34 +128,26 @@
       <section id="clientes" class="view">
         <div class="card form-card" id="clientFormCard">
           <h3>Agregar cliente</h3>
-          <div id="clientAdminOnlyNote" class="locked-note hidden">Solo Giuli/admin puede agregar clientes. Iván puede ver la lista y cargar movimientos.</div>
+          <div id="clientAdminOnlyNote" class="locked-note hidden">Solo Giuli/admin puede agregar clientes.</div>
           <div class="form-grid">
-            <label>Código automático
-              <input id="clientCodePreview" disabled placeholder="Se genera solo: C001, C002...">
-            </label>
+            <label>Código automático<input id="clientCodePreview" disabled></label>
             <label>Nombre<input id="clientName" placeholder="Nombre o comercio"></label>
             <label>Dirección<input id="clientAddress" placeholder="Dirección"></label>
             <label>Teléfono<input id="clientPhone" placeholder="Teléfono"></label>
             <label>Día<select id="clientDay"></select></label>
             <label>Insertar después de<select id="clientInsertAfter"></select></label>
-            <label>Orden<input id="clientOrder" type="number" placeholder="Se calcula solo"></label>
+            <label>Orden<input id="clientOrder" type="number" disabled placeholder="Se calcula solo"></label>
             <label>Lista de precios<select id="clientPriceList"></select></label>
             <label>¿Tiene frío/calor?
-              <select id="clientCooler">
-                <option value="no">No</option>
-                <option value="si">Sí</option>
-              </select>
+              <select id="clientCooler"><option value="no">No</option><option value="si">Sí</option></select>
             </label>
-            <label class="wide">Descripción frío/calor
-              <input id="clientCoolerDesc" placeholder="Ej: equipo blanco, modelo X, entregado 30/04">
-            </label>
-            <label class="wide">Notas<input id="clientNote" placeholder="Ej: deja bidón en portería"></label>
+            <label class="wide">Descripción frío/calor<input id="clientCoolerDesc" placeholder="Modelo, color, fecha, estado"></label>
+            <label class="wide">Notas<input id="clientNote" placeholder="Observaciones"></label>
           </div>
           <button class="primary" id="saveClientBtn">Agregar cliente</button>
         </div>
-
         <div class="toolbar">
-          <input id="clientSearch" placeholder="Buscar cliente, código, dirección o teléfono">
+          <input id="clientSearch" placeholder="Buscar cliente">
           <select id="clientSort">
             <option value="route">Día + orden</option>
             <option value="code">Código</option>
@@ -186,9 +162,9 @@
         <div class="kpis">
           <div class="kpi danger"><span>Fiado total</span><strong id="debtTotal">$0</strong></div>
           <div class="kpi"><span>Clientes con deuda</span><strong id="debtCount">0</strong></div>
-          <div class="kpi"><span>Mayor deuda</span><strong id="maxDebt">$0</strong></div>
+          <div class="kpi creditk"><span>Saldo a favor total</span><strong id="creditTotal">$0</strong></div>
         </div>
-        <div id="debtTable" class="table-card"></div>
+        <div id="debtDetails"></div>
       </section>
 
       <section id="ventas" class="view">
@@ -203,14 +179,8 @@
           <div class="kpi"><span>Movimientos</span><strong id="salesMoves">0</strong></div>
         </div>
         <div class="two-cols">
-          <div class="card">
-            <div class="card-head"><h3>Productos vendidos</h3></div>
-            <div id="salesProducts"></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Medios de pago</h3></div>
-            <div id="salesPays"></div>
-          </div>
+          <div class="card"><div class="card-head"><h3>Productos</h3></div><div id="salesProducts"></div></div>
+          <div class="card"><div class="card-head"><h3>Medios de pago</h3></div><div id="salesPays"></div></div>
         </div>
         <div id="salesTable" class="table-card"></div>
       </section>
@@ -218,7 +188,7 @@
       <section id="precios" class="view">
         <div class="card">
           <h3>Listas de precios</h3>
-          <p class="muted">Editá los precios y tocá “Guardar precios”. Después cada cliente usa su lista asignada.</p>
+          <p class="muted">Iván puede verlas, pero no modificarlas.</p>
           <div id="priceLists"></div>
           <button class="primary" id="savePricesBtn">Guardar precios</button>
         </div>
@@ -227,7 +197,7 @@
       <section id="portal" class="view">
         <div class="toolbar">
           <select id="portalClient"></select>
-          <button class="primary" id="copyPortalLinkBtn">Copiar link de este cliente</button>
+          <button class="primary" id="copyPortalLinkBtn">Copiar link cliente</button>
         </div>
         <div id="clientPortal" class="portal"></div>
       </section>
