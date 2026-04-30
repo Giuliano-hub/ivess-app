@@ -5,6 +5,43 @@ document.addEventListener("DOMContentLoaded", function () {
   const money = n => new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(Number(n||0));
   const el = id => document.getElementById(id);
 
+  const users = {
+    "giuli": { pass:"ivess2026", role:"admin", name:"Giuli" },
+    "ivan": { pass:"reparto2026", role:"repartidor", name:"Iván" }
+  };
+  let currentUser = JSON.parse(sessionStorage.getItem("ivessUser") || "null");
+
+  function isAdmin(){ return currentUser && currentUser.role === "admin"; }
+  function isRepartidor(){ return currentUser && currentUser.role === "repartidor"; }
+
+  function showLogin(){
+    el("loginScreen").classList.remove("hidden");
+    el("adminApp").classList.add("hidden");
+  }
+  function showAdminApp(){
+    el("loginScreen").classList.add("hidden");
+    el("adminApp").classList.remove("hidden");
+  }
+  function doLogin(){
+    const u = (el("loginUser").value || "").trim().toLowerCase();
+    const p = el("loginPass").value || "";
+    if(users[u] && users[u].pass === p){
+      currentUser = { user:u, role:users[u].role, name:users[u].name };
+      sessionStorage.setItem("ivessUser", JSON.stringify(currentUser));
+      showAdminApp();
+      fillBase();
+      renderAll();
+      updatePriceHint();
+      return;
+    }
+    el("loginError").textContent = "Usuario o clave incorrectos.";
+  }
+  function logout(){
+    sessionStorage.removeItem("ivessUser");
+    currentUser = null;
+    showLogin();
+  }
+
   const defaultPriceLists = {
     "1": { name:"Lista 1 - IVESS", prices: {"20L":9000,"20L Bajo Sodio":10000,"12L":6200,"12L Bajo Sodio":7500,"Soda vidrio":1200,"Soda plástico":1400,"Pago / Saldo":0,"Otro":0}},
     "2": { name:"Lista 2 - IVESS frío-calor", prices: {"20L":10000,"20L Bajo Sodio":11000,"12L":6500,"12L Bajo Sodio":7800,"Soda vidrio":1200,"Soda plástico":1400,"Pago / Saldo":0,"Otro":0}},
@@ -14,10 +51,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const demo = {
     priceLists: defaultPriceLists,
     clients:[
-      {id:"c1",code:"L-001",name:"Marta Gómez",address:"French 1234",phone:"11-1111-1111",day:"Lunes",order:1,note:"Timbre 2B",priceList:"1"},
-      {id:"c2",code:"L-002",name:"Carnicería Los Primos",address:"Alsina 850",phone:"11-2222-2222",day:"Lunes",order:2,note:"Paga por MP",priceList:"1"},
-      {id:"c3",code:"M-001",name:"Edificio Mitre 455",address:"Mitre 455",phone:"11-3333-3333",day:"Miércoles",order:1,note:"Dejar en portería",priceList:"2"},
-      {id:"c4",code:"V-001",name:"Claudia Pérez",address:"Maipú 730",phone:"11-4444-4444",day:"Viernes",order:1,note:"20L bajo sodio",priceList:"3"}
+      {id:"c1",code:"C001", cooler:"no", coolerDesc:"",name:"Marta Gómez",address:"French 1234",phone:"11-1111-1111",day:"Lunes",order:1,note:"Timbre 2B",priceList:"1"},
+      {id:"c2",code:"C002", cooler:"no", coolerDesc:"",name:"Carnicería Los Primos",address:"Alsina 850",phone:"11-2222-2222",day:"Lunes",order:2,note:"Paga por MP",priceList:"1"},
+      {id:"c3",code:"C003", cooler:"si", coolerDesc:"Equipo frío/calor blanco, en portería",name:"Edificio Mitre 455",address:"Mitre 455",phone:"11-3333-3333",day:"Miércoles",order:1,note:"Dejar en portería",priceList:"2"},
+      {id:"c4",code:"C004", cooler:"no", coolerDesc:"",name:"Claudia Pérez",address:"Maipú 730",phone:"11-4444-4444",day:"Viernes",order:1,note:"20L bajo sodio",priceList:"3"}
     ],
     moves:[
       {id:"m1",clientId:"c1",date:todayStr(),type:"fiado",product:"20L",qty:1,pay:"Fiado",amount:9000,note:"Abona próxima visita"},
@@ -42,8 +79,22 @@ document.addEventListener("DOMContentLoaded", function () {
     return saldo;
   }
   function client(id){ return state.clients.find(c=>c.id===id); }
+  function findClient(idOrCode){ return state.clients.find(c=>c.id===idOrCode || String(c.code).toLowerCase()===String(idOrCode).toLowerCase()); }
   function priceListName(id){ return state.priceLists[id]?.name || "Lista sin nombre"; }
   function label(t){ return {venta:"Venta cobrada",fiado:"Fiado",pago:"Pago recibido",no_compra:"No compró / no estaba"}[t] || t; }
+
+  function codeNumber(code){
+    const match = String(code || "").match(/C(\d+)/i);
+    return match ? Number(match[1]) : 0;
+  }
+  function generateNextCode(){
+    const max = state.clients.reduce((m,c)=>Math.max(m, codeNumber(c.code)), 0);
+    return "C" + String(max + 1).padStart(3, "0");
+  }
+  function updateCodePreview(){
+    const input = el("clientCodePreview");
+    if(input) input.value = generateNextCode();
+  }
 
   function sortClients(arr, mode){
     const list = arr.slice();
@@ -58,7 +109,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ["movProduct"].forEach(id=> el(id).innerHTML = products.map(p=>`<option>${p}</option>`).join(""));
     fillPriceListSelects();
     fillClients();
-    el("todayLabel").textContent = todayStr();
+    el("todayLabel").innerHTML = `${todayStr()} <span class="role-pill">${currentUser ? currentUser.name : ""}</span>`; updateCodePreview();
   }
   function fillPriceListSelects(){
     const opts = Object.entries(state.priceLists).map(([id,l])=>`<option value="${id}">${l.name}</option>`).join("");
@@ -82,8 +133,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const unit = getUnitPrice(c.id, product);
     const total = unit * qty;
     el("priceHint").textContent = `${c.name} usa ${priceListName(c.priceList)} · ${product}: ${money(unit)} x ${qty} = ${money(total)}`;
-    if(el("movType").value !== "pago" && el("movType").value !== "no_compra") el("movAmount").value = total;
-    if(el("movType").value === "pago") el("movProduct").value = "Pago / Saldo";
+    if(el("movType").value === "pago"){
+      el("movProduct").value = "Pago / Saldo";
+      el("priceHint").textContent = `${c.name} · Pago de deuda: cargá manualmente el importe que te pagó. Deuda actual: ${money(debt(c.id))}`;
+      return;
+    }
+    if(el("movType").value !== "no_compra") el("movAmount").value = total;
   }
 
   function renderDashboard(){
@@ -116,7 +171,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function renderDashRoute(){
     const d = el("dashDay").value || "Lunes";
     const list = state.clients.filter(c=>c.day===d).sort((a,b)=>Number(a.order)-Number(b.order)).slice(0,8);
-    el("dashRoute").innerHTML = list.map(c=>`<div class="move"><div><b>${c.code ? c.code+" · " : ""}#${c.order} ${c.name}</b><small>${c.address} · ${priceListName(c.priceList)}</small></div><b class="${debt(c.id)>0?"debt":"ok"}">${money(debt(c.id))}</b></div>`).join("") || "<p class='muted'>Sin clientes para este día.</p>";
+    el("dashRoute").innerHTML = list.map(c=>`<div class="move"><div><b>${c.code ? c.code+" · " : ""}#${c.order} ${c.name}</b><small>${c.address} · ${priceListName(c.priceList)}${c.cooler==="si" ? " · Frío/calor" : ""}</small></div><b class="${debt(c.id)>0?"debt":"ok"}">${money(debt(c.id))}</b></div>`).join("") || "<p class='muted'>Sin clientes para este día.</p>";
   }
 
   function renderRoute(){
@@ -126,9 +181,9 @@ document.addEventListener("DOMContentLoaded", function () {
     let items = state.clients.filter(c=>c.day===d && ((c.code||"")+c.name+c.address+c.phone).toLowerCase().includes(q));
     if(mode === "order") items = items.sort((a,b)=>Number(a.order)-Number(b.order)); else items = sortClients(items, mode);
     el("routeCards").innerHTML = items.map(c=>`<div class="client-card">
-      <div class="top"><div><span class="code-badge">${c.code || "Sin código"}</span><span class="price-badge">${priceListName(c.priceList)}</span><h3>#${c.order} ${c.name}</h3><p class="muted">${c.address}<br>${c.phone}</p></div><span class="badge">${c.day}</span></div>
+      <div class="top"><div><span class="code-badge">${c.code || "Sin código"}</span><span class="price-badge">${priceListName(c.priceList)}</span>${c.cooler==="si" ? `<span class="cooler-badge">Frío/calor</span>` : ""}<h3>#${c.order} ${c.name}</h3><p class="muted">${c.address}<br>${c.phone}</p></div><span class="badge">${c.day}</span></div>
       <p>Fiado actual: <span class="${debt(c.id)>0?"debt":"ok"}">${money(debt(c.id))}</span></p>
-      <p class="muted">${c.note||""}</p>
+      <p class="muted">${c.note||""}${c.cooler==="si" && c.coolerDesc ? "<br>Equipo: " + c.coolerDesc : ""}</p>
       <div class="actions"><button data-prefill="${c.id}|venta">Venta</button><button data-prefill="${c.id}|fiado">Fiado</button><button data-prefill="${c.id}|pago">Pago</button></div>
     </div>`).join("") || "<div class='card'>No hay clientes con ese filtro.</div>";
     document.querySelectorAll("[data-prefill]").forEach(btn=>btn.addEventListener("click", function(){ const [id,type]=this.dataset.prefill.split("|"); prefill(id,type); }));
@@ -138,7 +193,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const url = new URL(window.location.href);
     url.search = "";
     url.hash = "";
-    url.searchParams.set("cliente", id);
+    url.searchParams.set("cliente", client(id)?.code || id);
     return url.toString();
   }
   async function copyText(text){
@@ -150,7 +205,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const q = (el("clientSearch").value || "").toLowerCase();
     const mode = el("clientSort").value;
     const rows = sortClients(state.clients.filter(c=>((c.code||"")+c.name+c.address+c.phone+c.day).toLowerCase().includes(q)), mode);
-    el("clientTable").innerHTML = `<table><thead><tr><th>Código</th><th>Día</th><th>Orden</th><th>Cliente</th><th>Lista</th><th>Teléfono</th><th>Fiado</th><th>Link</th><th>Acción</th></tr></thead><tbody>${rows.map(c=>`<tr><td><b>${c.code||"-"}</b></td><td>${c.day}</td><td>${c.order}</td><td><b>${c.name}</b><br><small>${c.address}</small></td><td>${priceListName(c.priceList)}</td><td>${c.phone}</td><td class="${debt(c.id)>0?"debt":"ok"}">${money(debt(c.id))}</td><td><button class="link-row" data-link="${c.id}">Copiar link</button></td><td><button class="delete-row" data-delete="${c.id}">Eliminar</button></td></tr>`).join("")}</tbody></table>`;
+    el("clientTable").innerHTML = `<table><thead><tr><th>Código</th><th>Día</th><th>Orden</th><th>Cliente</th><th>Lista</th><th>Frío/calor</th><th>Teléfono</th><th>Fiado</th><th>Link</th><th>Acción</th></tr></thead><tbody>${rows.map(c=>`<tr><td><b>${c.code||"-"}</b></td><td>${c.day}</td><td>${c.order}</td><td><b>${c.name}</b><br><small>${c.address}</small></td><td>${priceListName(c.priceList)}</td><td>${c.cooler==="si" ? "Sí" : "No"}${c.coolerDesc ? "<br><small>"+c.coolerDesc+"</small>" : ""}</td><td>${c.phone}</td><td class="${debt(c.id)>0?"debt":"ok"}">${money(debt(c.id))}</td><td><button class="link-row" data-link="${c.id}">Copiar link</button></td><td><button class="delete-row" data-delete="${c.id}">Eliminar</button></td></tr>`).join("")}</tbody></table>`;
     document.querySelectorAll("[data-delete]").forEach(btn=>btn.addEventListener("click", function(){ deleteClient(this.dataset.delete); }));
     document.querySelectorAll("[data-link]").forEach(btn=>btn.addEventListener("click", function(){ copyText(clientLink(this.dataset.link)); }));
   }
@@ -160,11 +215,11 @@ document.addEventListener("DOMContentLoaded", function () {
     el("debtTotal").textContent = money(rows.reduce((s,c)=>s+c.d,0));
     el("debtCount").textContent = rows.length;
     el("maxDebt").textContent = money(rows[0]?.d || 0);
-    el("debtTable").innerHTML = `<table><thead><tr><th>Código</th><th>Cliente</th><th>Día</th><th>Lista</th><th>Teléfono</th><th>Deuda</th></tr></thead><tbody>${rows.map(c=>`<tr><td><b>${c.code||"-"}</b></td><td><b>${c.name}</b></td><td>${c.day}</td><td>${priceListName(c.priceList)}</td><td>${c.phone}</td><td class="debt">${money(c.d)}</td></tr>`).join("") || "<tr><td colspan='6'>No hay fiados pendientes.</td></tr>"}</tbody></table>`;
+    el("debtTable").innerHTML = `<table><thead><tr><th>Código</th><th>Cliente</th><th>Día</th><th>Lista</th><th>Teléfono</th><th>Deuda</th></tr></thead><tbody>${rows.map(c=>`<tr><td><b>${c.code||"-"}</b></td><td><b>${c.name}</b></td><td>${c.day}</td><td>${priceListName(c.priceList)}</td><td>${c.cooler==="si" ? "Sí" : "No"}${c.coolerDesc ? "<br><small>"+c.coolerDesc+"</small>" : ""}</td><td>${c.phone}</td><td class="debt">${money(c.d)}</td></tr>`).join("") || "<tr><td colspan='6'>No hay fiados pendientes.</td></tr>"}</tbody></table>`;
   }
 
   function portalHTML(id, publicMode=false){
-    const c = client(id);
+    const c = client(id) || state.clients.find(x => String(x.code).toLowerCase() === String(id).toLowerCase());
     if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consultanos por WhatsApp para verificar tu cuenta.</p></div>";
     const d = debt(id);
     const moves = state.moves.filter(m=>m.clientId===id).slice().reverse();
@@ -176,7 +231,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <h2>Hola, ${c.name}</h2>
           <p class="muted">Este es el detalle actualizado de tu cuenta.</p>
           <div class="public-debt ${d>0?"debt":"ok"}">${money(d)}</div>
-          <p class="muted">Dirección: ${c.address}</p>
+          <p class="muted">Dirección: ${c.address}</p>${c.cooler==="si" ? `<p class="muted">Equipo frío/calor: ${c.coolerDesc || "Sí"}</p>` : ""}
         </div>
         ${publicMode ? "<div class='public-logo'>IV</div>" : ""}
       </div>
@@ -192,13 +247,21 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function renderPrices(){
-    el("priceLists").innerHTML = `<div class="price-list-grid">${Object.entries(state.priceLists).map(([listId,list])=>`
+    const disabled = isAdmin() ? "" : "disabled";
+    const note = isAdmin() ? "" : "<div class='locked-note'>Modo repartidor: podés ver las listas de precios, pero no modificarlas.</div>";
+    el("priceLists").innerHTML = `${note}<div class="price-list-grid">${Object.entries(state.priceLists).map(([listId,list])=>`
       <div class="price-list">
         <h3>${list.name}</h3>
-        ${products.map(p=>`<div class="price-row"><span>${p}</span><input type="number" value="${list.prices[p] || 0}" data-price-list="${listId}" data-product="${p}"></div>`).join("")}
+        ${products.map(p=>`<div class="price-row"><span>${p}</span><input type="number" value="${list.prices[p] || 0}" data-price-list="${listId}" data-product="${p}" ${disabled}></div>`).join("")}
       </div>`).join("")}</div>`;
+    el("savePricesBtn").disabled = !isAdmin();
+    el("savePricesBtn").textContent = isAdmin() ? "Guardar precios" : "Solo Giuli puede modificar precios";
   }
   function savePrices(){
+    if(!isAdmin()){
+      alert("Solo el usuario admin puede modificar listas de precios.");
+      return;
+    }
     document.querySelectorAll("[data-price-list]").forEach(inp=>{
       const listId = inp.dataset.priceList;
       const product = inp.dataset.product;
@@ -234,17 +297,19 @@ document.addEventListener("DOMContentLoaded", function () {
   function addClient(){
     state.clients.push({
       id:"c"+Date.now(),
-      code:el("clientCode").value.trim(),
+      code:generateNextCode(),
       name:el("clientName").value || "Cliente",
       address:el("clientAddress").value,
       phone:el("clientPhone").value,
       day:el("clientDay").value,
       order:Number(el("clientOrder").value || 1),
       priceList:el("clientPriceList").value,
+      cooler:el("clientCooler").value,
+      coolerDesc:el("clientCoolerDesc").value,
       note:el("clientNote").value
     });
     save();
-    ["clientCode","clientName","clientAddress","clientPhone","clientOrder","clientNote"].forEach(id=>el(id).value="");
+    ["clientName","clientAddress","clientPhone","clientOrder","clientNote","clientCoolerDesc"].forEach(id=>el(id).value=""); el("clientCooler").value="no"; updateCodePreview();
     fillClients();
     renderAll();
     alert("Cliente agregado");
@@ -286,7 +351,7 @@ document.addEventListener("DOMContentLoaded", function () {
     renderAll();
   }
 
-  function renderAll(){ renderDashboard(); renderRoute(); renderClients(); renderDebts(); renderPortal(); renderPrices(); }
+  function renderAll(){ renderDashboard(); renderRoute(); renderClients(); renderDebts(); renderPortal(); renderPrices(); updateCodePreview(); }
 
   function bootPublicIfNeeded(){
     const params = new URLSearchParams(window.location.search);
@@ -323,9 +388,21 @@ document.addEventListener("DOMContentLoaded", function () {
     alert("Demo reiniciada");
   });
 
-  fillBase();
-  if(!bootPublicIfNeeded()){
+  el("loginBtn").addEventListener("click", doLogin);
+  el("loginPass").addEventListener("keydown", function(e){ if(e.key === "Enter") doLogin(); });
+  el("loginUser").addEventListener("keydown", function(e){ if(e.key === "Enter") doLogin(); });
+  el("logoutBtn").addEventListener("click", logout);
+
+  if(bootPublicIfNeeded()){
+    return;
+  }
+
+  if(currentUser){
+    showAdminApp();
+    fillBase();
     renderAll();
     updatePriceHint();
+  } else {
+    showLogin();
   }
 });

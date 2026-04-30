@@ -7,7 +7,20 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app" id="adminApp">
+  <div id="loginScreen" class="login-screen hidden">
+    <div class="login-card">
+      <div class="login-logo">IV</div>
+      <h1>IVESS</h1>
+      <p>Ingresá para acceder al sistema de reparto</p>
+      <label>Usuario<input id="loginUser" placeholder="Usuario"></label>
+      <label>Clave<input id="loginPass" type="password" placeholder="Clave"></label>
+      <button class="primary" id="loginBtn">Ingresar</button>
+      <div id="loginError" class="login-error"></div>
+      <small>Clientes: ingresan directo desde su link individual.</small>
+    </div>
+  </div>
+
+  <div class="app hidden" id="adminApp">
     <aside class="sidebar">
       <div class="brand">
         <div class="logo">IV</div>
@@ -31,6 +44,7 @@
         <span>Demo local</span>
         <p>Los datos quedan guardados en este navegador.</p>
         <button id="resetDemoBtn">Reiniciar demo</button>
+        <button id="logoutBtn" class="logout-btn">Cerrar sesión</button>
       </div>
     </aside>
 
@@ -121,13 +135,24 @@
         <div class="card form-card">
           <h3>Agregar cliente</h3>
           <div class="form-grid">
-            <label>Código<input id="clientCode" placeholder="Ej: L-001 / 154 / M455"></label>
+            <label>Código automático
+              <input id="clientCodePreview" disabled placeholder="Se genera solo: C001, C002...">
+            </label>
             <label>Nombre<input id="clientName" placeholder="Nombre o comercio"></label>
             <label>Dirección<input id="clientAddress" placeholder="Dirección"></label>
             <label>Teléfono<input id="clientPhone" placeholder="Teléfono"></label>
             <label>Día<select id="clientDay"></select></label>
             <label>Orden<input id="clientOrder" type="number" placeholder="Orden"></label>
             <label>Lista de precios<select id="clientPriceList"></select></label>
+            <label>¿Tiene frío/calor?
+              <select id="clientCooler">
+                <option value="no">No</option>
+                <option value="si">Sí</option>
+              </select>
+            </label>
+            <label class="wide">Descripción frío/calor
+              <input id="clientCoolerDesc" placeholder="Ej: equipo blanco, modelo X, entregado 30/04">
+            </label>
             <label class="wide">Notas<input id="clientNote" placeholder="Ej: deja bidón en portería"></label>
           </div>
           <button class="primary" id="saveClientBtn">Agregar cliente</button>
