@@ -2,6 +2,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const days = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
   const products = ["20L","20L Bajo Sodio","12L","12L Bajo Sodio","Soda vidrio","Soda plástico","Pago / Saldo","Otro"];
   const todayStr = () => new Date().toLocaleDateString("es-AR");
+  const todayISO = () => new Date().toISOString().slice(0,10);
+  function arToISO(d){
+    if(!d) return "";
+    const parts = d.split("/");
+    if(parts.length !== 3) return d;
+    return `${parts[2]}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}`;
+  }
+  function sameDate(moveDate, isoDate){ return arToISO(moveDate) === isoDate; }
   const money = n => new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(Number(n||0));
   const el = id => document.getElementById(id);
 
@@ -78,14 +86,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     return saldo;
   }
-  function debt(id){
+  function debt(c.id){
     return Math.max(0, balance(id));
   }
   function credit(id){
     return Math.max(0, -balance(id));
   }
   function balanceLabel(id){
-    const d = debt(id);
+    const d = debt(c.id);
     const c = credit(id);
     if(c > 0) return `<span class="credit">Saldo a favor: ${money(c)}</span>`;
     if(d > 0) return `<span class="debt">${money(d)}</span>`;
@@ -118,7 +126,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function fillBase(){
-    ["dashDay","routeDay","clientDay"].forEach(id=> el(id).innerHTML = days.map(d=>`<option>${d}</option>`).join(""));
+    ["dashDay","routeDay","clientDay","sheetDay"].forEach(id=> el(id).innerHTML = days.map(d=>`<option>${d}</option>`).join(""));
     ["movProduct"].forEach(id=> el(id).innerHTML = products.map(p=>`<option>${p}</option>`).join(""));
     fillPriceListSelects();
     fillClients();
@@ -131,6 +139,35 @@ document.addEventListener("DOMContentLoaded", function () {
   function fillClients(){
     const opts = sortClients(state.clients, "code").map(c=>`<option value="${c.id}">${c.code ? c.code+" · " : ""}${c.day} #${c.order} · ${c.name}</option>`).join("");
     ["movClient","portalClient"].forEach(id=> el(id).innerHTML = opts);
+    fillInsertAfter();
+  }
+
+  function fillInsertAfter(){
+    const day = el("clientDay") ? el("clientDay").value : "Lunes";
+    const items = state.clients.filter(c=>c.day===day).sort((a,b)=>Number(a.order)-Number(b.order));
+    const opts = [`<option value="">Al principio de la ruta</option>`].concat(
+      items.map(c=>`<option value="${c.id}">Después de #${c.order} · ${c.code || ""} · ${c.name}</option>`)
+    ).join("");
+    if(el("clientInsertAfter")) el("clientInsertAfter").innerHTML = opts;
+    updateCalculatedOrder();
+  }
+
+  function updateCalculatedOrder(){
+    if(!el("clientInsertAfter") || !el("clientOrder")) return;
+    const afterId = el("clientInsertAfter").value;
+    if(!afterId){
+      el("clientOrder").value = 1;
+      return;
+    }
+    const prev = client(afterId);
+    el("clientOrder").value = prev ? Number(prev.order || 0) + 1 : 1;
+  }
+
+  function recalcOrders(day){
+    state.clients
+      .filter(c=>c.day===day)
+      .sort((a,b)=>Number(a.order)-Number(b.order))
+      .forEach((c,i)=>c.order=i+1);
   }
 
   function getUnitPrice(clientId, product){
@@ -234,8 +271,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function portalHTML(id, publicMode=false){
     const c = findClient(id);
     if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consultanos por WhatsApp para verificar tu cuenta.</p></div>";
-    const d = debt(id);
-    const moves = state.moves.filter(m=>m.clientId===id).slice().reverse();
+    const d = debt(c.id);
+    const moves = state.moves.filter(m=>m.clientId===c.id).slice().reverse();
     const wrapperClass = publicMode ? "public-card" : "";
     return `<div class="${wrapperClass}">
       <div class="${publicMode ? "public-top" : "portal-banner"}">
@@ -312,22 +349,35 @@ document.addEventListener("DOMContentLoaded", function () {
       alert("Solo Giuli/admin puede agregar clientes.");
       return;
     }
+    const selectedDay = el("clientDay").value;
+    const afterId = el("clientInsertAfter").value;
+    let newOrder = 1;
+    if(afterId){
+      const prev = client(afterId);
+      newOrder = prev ? Number(prev.order || 0) + 1 : 1;
+    }
+    state.clients
+      .filter(c=>c.day===selectedDay && Number(c.order) >= newOrder)
+      .forEach(c=>c.order = Number(c.order) + 1);
+
     state.clients.push({
       id:"c"+Date.now(),
       code:generateNextCode(),
       name:el("clientName").value || "Cliente",
       address:el("clientAddress").value,
       phone:el("clientPhone").value,
-      day:el("clientDay").value,
-      order:Number(el("clientOrder").value || 1),
+      day:selectedDay,
+      order:newOrder,
       priceList:el("clientPriceList").value,
       cooler:el("clientCooler").value,
       coolerDesc:el("clientCoolerDesc").value,
       note:el("clientNote").value
     });
+    recalcOrders(selectedDay);
     save();
     ["clientName","clientAddress","clientPhone","clientOrder","clientNote","clientCoolerDesc"].forEach(id=>el(id).value=""); el("clientCooler").value="no"; updateCodePreview();
     fillClients();
+    fillInsertAfter();
     renderAll();
     alert("Cliente agregado");
   }
@@ -364,6 +414,10 @@ document.addEventListener("DOMContentLoaded", function () {
     if(el("clientAdminOnlyNote")){
       el("clientAdminOnlyNote").classList.toggle("hidden", canCreateClients);
     }
+    document.querySelectorAll(".admin-only").forEach(node=>node.classList.toggle("hidden", !isAdmin()));
+    if(!isAdmin() && document.getElementById("ventas")?.classList.contains("active")){
+      openView("dashboard");
+    }
   }
 
   function openView(viewName){
@@ -373,9 +427,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const titles = {
       dashboard:["Panel general","Resumen de ventas, cobros, fiados y productos vendidos."],
       ruta:["Ruta del día","Clientes ordenados por día y atención."],
+      hoja:["Hoja de ruta","Vista rápida para celular y reparto."],
       cargar:["Cargar movimiento","El precio se completa según cliente y lista asignada."],
       clientes:["Clientes","Alta, búsqueda, códigos, listas de precio y links individuales."],
       fiados:["Fiados","Deudas pendientes por cliente."],
+      ventas:["Venta general","Reporte diario para comparar contra remitos."],
       precios:["Listas de precios","IVESS, IVESS frío-calor y Pirozi."],
       portal:["Vista cliente","Pantalla limpia para compartir deuda e historial."]
     };
@@ -384,7 +440,78 @@ document.addEventListener("DOMContentLoaded", function () {
     renderAll();
   }
 
-  function renderAll(){ renderDashboard(); renderRoute(); renderClients(); renderDebts(); renderPortal(); renderPrices(); updateCodePreview(); applyRolePermissions(); }
+  
+  function renderRouteSheet(){
+    if(!el("routeSheet")) return;
+    const d = el("sheetDay").value || "Lunes";
+    const q = (el("sheetSearch").value || "").toLowerCase();
+    const items = state.clients
+      .filter(c=>c.day===d && ((c.code||"")+c.name+c.address+c.phone).toLowerCase().includes(q))
+      .sort((a,b)=>Number(a.order)-Number(b.order));
+    el("routeSheet").innerHTML = items.map(c=>`
+      <div class="sheet-card">
+        <span class="code-badge">${c.code || "Sin código"}</span>
+        ${c.cooler==="si" ? `<span class="cooler-badge">Frío/calor</span>` : ""}
+        <h3>#${c.order} · ${c.name}</h3>
+        <div class="sheet-meta">
+          📍 ${c.address || "-"}<br>
+          ☎ ${c.phone || "-"}<br>
+          💰 ${balanceLabel(c.id)}<br>
+          ${c.note ? "📝 " + c.note + "<br>" : ""}
+          ${c.cooler==="si" && c.coolerDesc ? "❄️ " + c.coolerDesc : ""}
+        </div>
+        <div class="sheet-actions">
+          <button data-prefill="${c.id}|venta">Venta</button>
+          <button data-prefill="${c.id}|fiado">Fiado</button>
+          <button data-prefill="${c.id}|pago">Pago</button>
+        </div>
+      </div>`).join("") || "<div class='card'>No hay clientes para este día.</div>";
+    document.querySelectorAll("[data-prefill]").forEach(btn=>btn.addEventListener("click", function(){
+      const [id,type]=this.dataset.prefill.split("|");
+      prefill(id,type);
+    }));
+  }
+
+  function renderSales(){
+    if(!el("salesDate")) return;
+    const iso = el("salesDate").value || todayISO();
+    const moves = state.moves.filter(m=>sameDate(m.date, iso));
+    const soldMoves = moves.filter(m=>m.type==="venta" || m.type==="fiado");
+    const paidMoves = moves.filter(m=>m.type==="venta" || m.type==="pago");
+    const debtMoves = moves.filter(m=>m.type==="fiado");
+    const totalSold = soldMoves.reduce((s,m)=>s+Number(m.amount||0),0);
+    const totalPaid = paidMoves.reduce((s,m)=>s+Number(m.amount||0),0);
+    const totalDebt = debtMoves.reduce((s,m)=>s+Number(m.amount||0),0);
+    el("salesTotal").textContent = money(totalSold);
+    el("salesPaid").textContent = money(totalPaid);
+    el("salesDebt").textContent = money(totalDebt);
+    el("salesMoves").textContent = moves.length;
+
+    const prodMap = {};
+    soldMoves.forEach(m=>{
+      if(!prodMap[m.product]) prodMap[m.product] = {qty:0,total:0};
+      prodMap[m.product].qty += Number(m.qty || 1);
+      prodMap[m.product].total += Number(m.amount || 0);
+    });
+    const prodRows = Object.entries(prodMap);
+    el("salesProducts").innerHTML = `<table><thead><tr><th>Producto</th><th>Cantidad</th><th>Total</th></tr></thead><tbody>${prodRows.map(([p,v])=>`<tr><td><b>${p}</b></td><td>${v.qty}</td><td>${money(v.total)}</td></tr>`).join("") || "<tr><td colspan='3'>Sin ventas para esta fecha.</td></tr>"}</tbody></table>`;
+
+    const payMap = {};
+    moves.forEach(m=>{
+      const pay = m.pay || "-";
+      if(!payMap[pay]) payMap[pay] = 0;
+      if(m.type==="venta" || m.type==="pago") payMap[pay] += Number(m.amount || 0);
+    });
+    const payRows = Object.entries(payMap);
+    el("salesPays").innerHTML = `<table><thead><tr><th>Medio</th><th>Total cobrado</th></tr></thead><tbody>${payRows.map(([p,t])=>`<tr><td><b>${p}</b></td><td>${money(t)}</td></tr>`).join("") || "<tr><td colspan='2'>Sin cobros para esta fecha.</td></tr>"}</tbody></table>`;
+
+    el("salesTable").innerHTML = `<table><thead><tr><th>Hora/fecha</th><th>Cliente</th><th>Tipo</th><th>Producto</th><th>Cant.</th><th>Medio</th><th>Importe</th><th>Nota</th></tr></thead><tbody>${moves.map(m=>{
+      const c = client(m.clientId) || {};
+      return `<tr><td>${m.date}</td><td><b>${c.code || ""} ${c.name || "Cliente"}</b></td><td>${label(m.type)}</td><td>${m.product}</td><td>${m.qty || 1}</td><td>${m.pay || "-"}</td><td>${money(m.amount)}</td><td>${m.note || ""}</td></tr>`;
+    }).join("") || "<tr><td colspan='8'>Sin movimientos para esta fecha.</td></tr>"}</tbody></table>`;
+  }
+
+  function renderAll(){ renderDashboard(); renderRoute(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPortal(); renderPrices(); updateCodePreview(); applyRolePermissions(); }
 
   function bootPublicIfNeeded(){
     const params = new URLSearchParams(window.location.search);
@@ -399,7 +526,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   document.querySelectorAll(".nav").forEach(btn=>btn.addEventListener("click", function(){ openView(this.dataset.view); }));
-  ["dashDay","routeDay","routeSearch","routeSort","clientSearch","clientSort","portalClient"].forEach(id=>{
+  ["dashDay","routeDay","routeSearch","routeSort","sheetDay","sheetSearch","clientSearch","clientSort","portalClient","salesDate","clientDay","clientInsertAfter"].forEach(id=>{
     el(id).addEventListener("input", renderAll);
     el(id).addEventListener("change", renderAll);
   });
@@ -408,6 +535,8 @@ document.addEventListener("DOMContentLoaded", function () {
     el(id).addEventListener("change", updatePriceHint);
   });
 
+  if(el("salesDate")) el("salesDate").value = todayISO();
+  if(el("todaySalesBtn")) el("todaySalesBtn").addEventListener("click", function(){ el("salesDate").value = todayISO(); renderAll(); });
   el("saveMovementBtn").addEventListener("click", addMovement);
   el("saveClientBtn").addEventListener("click", addClient);
   el("savePricesBtn").addEventListener("click", savePrices);

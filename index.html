@@ -33,9 +33,11 @@
       <nav>
         <button class="nav active" data-view="dashboard">Panel general</button>
         <button class="nav" data-view="ruta">Ruta del día</button>
+        <button class="nav" data-view="hoja">Hoja de ruta</button>
         <button class="nav" data-view="cargar">Cargar movimiento</button>
         <button class="nav" data-view="clientes">Clientes</button>
         <button class="nav" data-view="fiados">Fiados</button>
+        <button class="nav admin-only" data-view="ventas">Venta general</button>
         <button class="nav" data-view="precios">Listas de precios</button>
         <button class="nav" data-view="portal">Vista cliente</button>
       </nav>
@@ -100,6 +102,14 @@
         <div id="routeCards" class="route-grid"></div>
       </section>
 
+      <section id="hoja" class="view">
+        <div class="toolbar">
+          <select id="sheetDay"></select>
+          <input id="sheetSearch" placeholder="Buscar en hoja de ruta">
+        </div>
+        <div id="routeSheet" class="route-sheet"></div>
+      </section>
+
       <section id="cargar" class="view">
         <div class="card form-card">
           <h3>Cargar venta, pago o fiado</h3>
@@ -143,7 +153,8 @@
             <label>Dirección<input id="clientAddress" placeholder="Dirección"></label>
             <label>Teléfono<input id="clientPhone" placeholder="Teléfono"></label>
             <label>Día<select id="clientDay"></select></label>
-            <label>Orden<input id="clientOrder" type="number" placeholder="Orden"></label>
+            <label>Insertar después de<select id="clientInsertAfter"></select></label>
+            <label>Orden<input id="clientOrder" type="number" placeholder="Se calcula solo"></label>
             <label>Lista de precios<select id="clientPriceList"></select></label>
             <label>¿Tiene frío/calor?
               <select id="clientCooler">
@@ -178,6 +189,30 @@
           <div class="kpi"><span>Mayor deuda</span><strong id="maxDebt">$0</strong></div>
         </div>
         <div id="debtTable" class="table-card"></div>
+      </section>
+
+      <section id="ventas" class="view">
+        <div class="toolbar">
+          <label>Fecha<input id="salesDate" type="date"></label>
+          <button class="primary" id="todaySalesBtn">Hoy</button>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><span>Vendido</span><strong id="salesTotal">$0</strong></div>
+          <div class="kpi"><span>Cobrado</span><strong id="salesPaid">$0</strong></div>
+          <div class="kpi danger"><span>Fiado</span><strong id="salesDebt">$0</strong></div>
+          <div class="kpi"><span>Movimientos</span><strong id="salesMoves">0</strong></div>
+        </div>
+        <div class="two-cols">
+          <div class="card">
+            <div class="card-head"><h3>Productos vendidos</h3></div>
+            <div id="salesProducts"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Medios de pago</h3></div>
+            <div id="salesPays"></div>
+          </div>
+        </div>
+        <div id="salesTable" class="table-card"></div>
       </section>
 
       <section id="precios" class="view">
