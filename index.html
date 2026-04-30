@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IVESS Control de Rutas V3</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app" id="adminApp">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">IV</div>
+        <div>
+          <h1>IVESS</h1>
+          <p>Control de reparto</p>
+        </div>
+      </div>
+
+      <nav>
+        <button class="nav active" data-view="dashboard">Panel general</button>
+        <button class="nav" data-view="ruta">Ruta del día</button>
+        <button class="nav" data-view="cargar">Cargar movimiento</button>
+        <button class="nav" data-view="clientes">Clientes</button>
+        <button class="nav" data-view="fiados">Fiados</button>
+        <button class="nav" data-view="precios">Listas de precios</button>
+        <button class="nav" data-view="portal">Vista cliente</button>
+      </nav>
+
+      <div class="side-card">
+        <span>Demo local</span>
+        <p>Los datos quedan guardados en este navegador.</p>
+        <button id="resetDemoBtn">Reiniciar demo</button>
+      </div>
+    </aside>
+
+    <main>
+      <header class="header">
+        <div>
+          <h2 id="viewTitle">Panel general</h2>
+          <p id="viewSubtitle">Resumen de ventas, cobros, fiados y productos vendidos.</p>
+        </div>
+        <div class="date-pill" id="todayLabel"></div>
+      </header>
+
+      <section id="dashboard" class="view active">
+        <div class="kpis">
+          <div class="kpi"><span>Vendido hoy</span><strong id="kpiSales">$0</strong></div>
+          <div class="kpi"><span>Cobrado hoy</span><strong id="kpiPaid">$0</strong></div>
+          <div class="kpi danger"><span>Fiado total</span><strong id="kpiDebt">$0</strong></div>
+          <div class="kpi"><span>Clientes</span><strong id="kpiClients">0</strong></div>
+        </div>
+
+        <div class="two-cols">
+          <div class="card">
+            <div class="card-head"><h3>Qué se vendió hoy</h3></div>
+            <div id="todayProducts"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h3>Últimos movimientos</h3></div>
+            <div id="latestMovements"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Ruta de hoy</h3>
+            <select id="dashDay"></select>
+          </div>
+          <div id="dashRoute"></div>
+        </div>
+      </section>
+
+      <section id="ruta" class="view">
+        <div class="toolbar">
+          <select id="routeDay"></select>
+          <select id="routeSort">
+            <option value="order">Orden de atención</option>
+            <option value="code">Código de cliente</option>
+            <option value="name">Nombre</option>
+            <option value="debt">Mayor fiado</option>
+          </select>
+          <input id="routeSearch" placeholder="Buscar cliente, código, dirección o teléfono">
+        </div>
+        <div id="routeCards" class="route-grid"></div>
+      </section>
+
+      <section id="cargar" class="view">
+        <div class="card form-card">
+          <h3>Cargar venta, pago o fiado</h3>
+          <p class="muted">Al elegir cliente y producto, el precio se completa solo según su lista.</p>
+
+          <div class="form-grid">
+            <label>Cliente<select id="movClient"></select></label>
+            <label>Tipo
+              <select id="movType">
+                <option value="venta">Venta cobrada</option>
+                <option value="fiado">Fiado</option>
+                <option value="pago">Pago de deuda</option>
+                <option value="no_compra">No compró / no estaba</option>
+              </select>
+            </label>
+            <label>Producto<select id="movProduct"></select></label>
+            <label>Medio de pago
+              <select id="movPay">
+                <option>Efectivo</option><option>Mercado Pago</option><option>Transferencia</option><option>Fiado</option>
+              </select>
+            </label>
+            <label>Cantidad<input id="movQty" type="number" min="1" value="1"></label>
+            <label>Importe total<input id="movAmount" type="number" placeholder="Precio automático"></label>
+            <label class="wide">Observación<input id="movNote" placeholder="Ej: paga deuda anterior"></label>
+          </div>
+
+          <div class="price-hint" id="priceHint">Seleccioná cliente y producto para ver precio.</div>
+          <button class="primary" id="saveMovementBtn">Guardar movimiento</button>
+        </div>
+      </section>
+
+      <section id="clientes" class="view">
+        <div class="card form-card">
+          <h3>Agregar cliente</h3>
+          <div class="form-grid">
+            <label>Código<input id="clientCode" placeholder="Ej: L-001 / 154 / M455"></label>
+            <label>Nombre<input id="clientName" placeholder="Nombre o comercio"></label>
+            <label>Dirección<input id="clientAddress" placeholder="Dirección"></label>
+            <label>Teléfono<input id="clientPhone" placeholder="Teléfono"></label>
+            <label>Día<select id="clientDay"></select></label>
+            <label>Orden<input id="clientOrder" type="number" placeholder="Orden"></label>
+            <label>Lista de precios<select id="clientPriceList"></select></label>
+            <label class="wide">Notas<input id="clientNote" placeholder="Ej: deja bidón en portería"></label>
+          </div>
+          <button class="primary" id="saveClientBtn">Agregar cliente</button>
+        </div>
+
+        <div class="toolbar">
+          <input id="clientSearch" placeholder="Buscar cliente, código, dirección o teléfono">
+          <select id="clientSort">
+            <option value="route">Día + orden</option>
+            <option value="code">Código</option>
+            <option value="name">Nombre</option>
+            <option value="debt">Mayor fiado</option>
+          </select>
+        </div>
+        <div id="clientTable" class="table-card"></div>
+      </section>
+
+      <section id="fiados" class="view">
+        <div class="kpis">
+          <div class="kpi danger"><span>Fiado total</span><strong id="debtTotal">$0</strong></div>
+          <div class="kpi"><span>Clientes con deuda</span><strong id="debtCount">0</strong></div>
+          <div class="kpi"><span>Mayor deuda</span><strong id="maxDebt">$0</strong></div>
+        </div>
+        <div id="debtTable" class="table-card"></div>
+      </section>
+
+      <section id="precios" class="view">
+        <div class="card">
+          <h3>Listas de precios</h3>
+          <p class="muted">Editá los precios y tocá “Guardar precios”. Después cada cliente usa su lista asignada.</p>
+          <div id="priceLists"></div>
+          <button class="primary" id="savePricesBtn">Guardar precios</button>
+        </div>
+      </section>
+
+      <section id="portal" class="view">
+        <div class="toolbar">
+          <select id="portalClient"></select>
+          <button class="primary" id="copyPortalLinkBtn">Copiar link de este cliente</button>
+        </div>
+        <div id="clientPortal" class="portal"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="publicPortal" class="public-portal hidden">
+    <div id="publicPortalContent"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
