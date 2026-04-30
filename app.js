@@ -36,6 +36,8 @@ document.addEventListener("DOMContentLoaded", function () {
   state.clients = (state.clients||[]).map(c=>({code:"",priceList:"1",cooler:"no",coolerDesc:"",note:"",...c}));
   state.moves = (state.moves||[]).map(m=>({qty:1,pay:"Efectivo",note:"",...m}));
   let currentUser = JSON.parse(sessionStorage.getItem("ivessUser") || "null");
+  let routeModeIndex = Number(sessionStorage.getItem("ivessRouteModeIndex") || 0);
+  let routeCart = JSON.parse(sessionStorage.getItem("ivessRouteCart") || "[]");
   const save = () => localStorage.setItem("ivessStableV5", JSON.stringify(state));
   function isAdmin(){ return currentUser && currentUser.role==="admin"; }
   function isIvan(){ return currentUser && currentUser.role==="repartidor"; }
@@ -142,6 +144,165 @@ document.addEventListener("DOMContentLoaded", function () {
     bindPrefill();
   }
   function clientCard(c){ return `<div class="client-card"><div class="top"><div><span class="code-badge">${c.code}</span><span class="price-badge">${priceListName(c.priceList)}</span>${c.cooler==="si"?`<span class="cooler-badge">Frío/calor</span>`:""}<h3>#${c.order} ${c.name}</h3><p class="muted">${c.address}<br>${c.phone}</p></div><span class="badge">${c.day}</span></div><p>Cuenta: ${balanceLabel(c.id)}</p><p class="muted">${c.note||""}${c.cooler==="si"&&c.coolerDesc?"<br>Equipo: "+c.coolerDesc:""}</p><div class="actions"><button data-prefill="${c.id}|venta">Venta</button><button data-prefill="${c.id}|fiado">Fiado</button><button data-prefill="${c.id}|pago">Pago</button></div></div>`; }
+  
+  function getRouteModeClients(){
+    const d = el("sheetDay").value || "Lunes";
+    const q = (el("sheetSearch").value || "").toLowerCase();
+    return state.clients
+      .filter(c=>c.day===d && (c.code+c.name+c.address+c.phone).toLowerCase().includes(q))
+      .sort((a,b)=>Number(a.order)-Number(b.order));
+  }
+  function saveRouteModeState(){
+    sessionStorage.setItem("ivessRouteModeIndex", String(routeModeIndex));
+    sessionStorage.setItem("ivessRouteCart", JSON.stringify(routeCart));
+  }
+  function addQuickProduct(product){
+    const c = getRouteModeClients()[routeModeIndex];
+    if(!c) return;
+    const existing = routeCart.find(i=>i.product===product);
+    const unit = getUnitPrice(c.id, product);
+    if(existing){
+      existing.qty += 1;
+      existing.total = existing.qty * unit;
+    } else {
+      routeCart.push({product, qty:1, unit, total:unit});
+    }
+    saveRouteModeState();
+    renderRouteMode();
+  }
+  function removeCartItem(idx){
+    routeCart.splice(idx,1);
+    saveRouteModeState();
+    renderRouteMode();
+  }
+  function updateCartQty(idx, qty){
+    qty = Math.max(1, Number(qty || 1));
+    if(!routeCart[idx]) return;
+    routeCart[idx].qty = qty;
+    routeCart[idx].total = qty * Number(routeCart[idx].unit || 0);
+    saveRouteModeState();
+    renderRouteMode();
+  }
+  function routeCartTotal(){
+    return routeCart.reduce((s,i)=>s+Number(i.total||0),0);
+  }
+  function saveRouteCurrentIfNeeded(){
+    const c = getRouteModeClients()[routeModeIndex];
+    if(!c) return;
+    const op = el("routeModeType") ? el("routeModeType").value : "venta";
+    const pay = el("routeModePay") ? el("routeModePay").value : "Efectivo";
+    const note = el("routeModeNote") ? el("routeModeNote").value : "";
+    const total = routeCartTotal();
+    if(op === "no_compra"){
+      state.moves.push({id:uid(),clientId:c.id,date:todayStr(),type:"no_compra",product:"-",qty:0,pay:"-",amount:0,saleValue:0,note:note || "No compró / no estaba"});
+    } else if(op === "pago"){
+      const amount = Number(el("routeModeManualAmount")?.value || 0);
+      if(amount > 0){
+        state.moves.push({id:uid(),clientId:c.id,date:todayStr(),type:"pago",product:"Pago / Saldo",qty:1,pay,amount,saleValue:0,note});
+      }
+    } else {
+      if(routeCart.length > 0){
+        routeCart.forEach(item=>{
+          state.moves.push({
+            id:uid(),
+            clientId:c.id,
+            date:todayStr(),
+            type:op,
+            product:item.product,
+            qty:Number(item.qty||1),
+            pay,
+            amount:Number(item.total||0),
+            saleValue:Number(item.total||0),
+            note
+          });
+        });
+      }
+    }
+    save();
+    routeCart = [];
+    if(el("routeModeManualAmount")) el("routeModeManualAmount").value = "";
+    if(el("routeModeNote")) el("routeModeNote").value = "";
+    saveRouteModeState();
+  }
+  function routeNext(){
+    saveRouteCurrentIfNeeded();
+    const list = getRouteModeClients();
+    routeModeIndex = Math.min(routeModeIndex + 1, Math.max(0, list.length - 1));
+    saveRouteModeState();
+    renderAll();
+  }
+  function routePrev(){
+    routeModeIndex = Math.max(0, routeModeIndex - 1);
+    saveRouteModeState();
+    renderAll();
+  }
+  function renderRouteMode(){
+    const list = getRouteModeClients();
+    if(routeModeIndex >= list.length) routeModeIndex = Math.max(0, list.length - 1);
+    const c = list[routeModeIndex];
+    if(!c){
+      el("routeModeClient").innerHTML = "<div class='muted'>No hay clientes para esta hoja de ruta.</div>";
+      return;
+    }
+    const quick = ["20L","20L Bajo Sodio","12L","12L Bajo Sodio","Soda vidrio","Soda plástico"];
+    const cartHtml = routeCart.length ? routeCart.map((i,idx)=>`
+      <div class="cart-item">
+        <b>${i.product}</b>
+        <input type="number" min="1" value="${i.qty}" data-cart-qty="${idx}">
+        <span>${money(i.total)}</span>
+        <button data-cart-del="${idx}">×</button>
+      </div>`).join("") : "<p class='muted'>Carrito vacío. Agregá productos con los botones rápidos.</p>";
+    el("routeModeClient").innerHTML = `
+      <div class="route-mode-card">
+        <div class="route-mode-client">
+          <span class="code-badge">${c.code}</span><span class="price-badge">${priceListName(c.priceList)}</span>${c.cooler==="si" ? `<span class="cooler-badge">Frío/calor</span>` : ""}
+          <h2>#${c.order} · ${c.name}</h2>
+          <p class="muted">📍 ${c.address || "-"}<br>☎ ${c.phone || "-"}<br>💰 ${balanceLabel(c.id)}</p>
+        </div>
+        <div class="quick-buttons">
+          ${quick.map(p=>`<button data-quick-product="${p}">+ ${p}<br><small>${money(getUnitPrice(c.id,p))}</small></button>`).join("")}
+        </div>
+        <div class="cart-box">
+          <h3>Carrito</h3>
+          ${cartHtml}
+          <div class="route-mode-total">Total: ${money(routeCartTotal())}</div>
+        </div>
+        <div class="route-mode-grid">
+          <label>Tipo
+            <select id="routeModeType">
+              <option value="venta">Venta cobrada</option>
+              <option value="fiado">Fiado</option>
+              <option value="pago">Pago de deuda</option>
+              <option value="no_compra">No compró / no estaba</option>
+            </select>
+          </label>
+          <label>Medio de pago
+            <select id="routeModePay">
+              <option>Efectivo</option>
+              <option>Mercado Pago</option>
+              <option>Transferencia</option>
+            </select>
+          </label>
+          <label>Pago manual / parcial
+            <input id="routeModeManualAmount" type="number" placeholder="Solo para pago de deuda">
+          </label>
+          <label>Nota
+            <input id="routeModeNote" placeholder="Observación">
+          </label>
+        </div>
+        <div class="small-note">Al tocar “Siguiente” se guarda automáticamente lo cargado para este cliente.</div>
+        <div class="route-nav">
+          <button class="prev" id="routePrevBtn">← Anterior</button>
+          <button class="next" id="routeNextBtn">Siguiente →</button>
+        </div>
+      </div>`;
+    document.querySelectorAll("[data-quick-product]").forEach(b=>b.onclick=()=>addQuickProduct(b.dataset.quickProduct));
+    document.querySelectorAll("[data-cart-del]").forEach(b=>b.onclick=()=>removeCartItem(Number(b.dataset.cartDel)));
+    document.querySelectorAll("[data-cart-qty]").forEach(inp=>inp.onchange=()=>updateCartQty(Number(inp.dataset.cartQty), inp.value));
+    el("routePrevBtn").onclick = routePrev;
+    el("routeNextBtn").onclick = routeNext;
+  }
+
   function renderRouteSheet(){
     const d=el("sheetDay").value||"Lunes", q=(el("sheetSearch").value||"").toLowerCase();
     const items=state.clients.filter(c=>c.day===d && (c.code+c.name+c.address+c.phone).toLowerCase().includes(q)).sort((a,b)=>Number(a.order)-Number(b.order));
@@ -253,7 +414,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],cargar:["Cargar movimiento","Venta, fiado, pago o no compra."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
-  function renderAll(){ renderDashboard(); renderRoute(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
+  function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
   function initAdmin(){ fillBase(); renderAll(); updatePriceHint(); }
 
   function bootPublic(){
@@ -263,12 +424,14 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>openView(b.dataset.view));
-  ["routeDay","routeSort","routeSearch","sheetDay","sheetSearch","clientSearch","clientSort","salesDate","portalClient"].forEach(id=>el(id).addEventListener("input",renderAll));
+  ["routeDay","routeSort","routeSearch","clientSearch","clientSort","salesDate","portalClient"].forEach(id=>el(id).addEventListener("input",renderAll));
+  ["sheetDay","sheetSearch"].forEach(id=>el(id).addEventListener("input",()=>{ routeModeIndex=0; routeCart=[]; saveRouteModeState(); renderAll(); }));
   ["clientDay","clientInsertAfter"].forEach(id=>el(id).addEventListener("change",()=>{fillInsertAfter();renderAll();}));
   ["movClient","movProduct","movQty","movType"].forEach(id=>el(id).addEventListener("input",updatePriceHint));
   el("loginBtn").onclick=login; el("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")login();}); el("logoutBtn").onclick=logout;
   el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value));
   el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();};
+  el("startRouteModeBtn").onclick=()=>{ routeModeIndex=0; routeCart=[]; saveRouteModeState(); renderAll(); };
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };
 
   save();
