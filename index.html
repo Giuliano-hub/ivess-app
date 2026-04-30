@@ -118,7 +118,7 @@
             <label>Producto<select id="movProduct"></select></label>
             <label>Medio de pago
               <select id="movPay">
-                <option>Efectivo</option><option>Mercado Pago</option><option>Transferencia</option><option>Fiado</option>
+                <option>Efectivo</option><option>Mercado Pago</option><option>Transferencia</option>
               </select>
             </label>
             <label>Cantidad<input id="movQty" type="number" min="1" value="1"></label>
@@ -132,8 +132,9 @@
       </section>
 
       <section id="clientes" class="view">
-        <div class="card form-card">
+        <div class="card form-card" id="clientFormCard">
           <h3>Agregar cliente</h3>
+          <div id="clientAdminOnlyNote" class="locked-note hidden">Solo Giuli/admin puede agregar clientes. Iván puede ver la lista y cargar movimientos.</div>
           <div class="form-grid">
             <label>Código automático
               <input id="clientCodePreview" disabled placeholder="Se genera solo: C001, C002...">

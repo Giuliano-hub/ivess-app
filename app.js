@@ -69,14 +69,27 @@ document.addEventListener("DOMContentLoaded", function () {
   state.moves = state.moves.map(m => ({qty:1, ...m}));
   const save = () => localStorage.setItem("ivessV3", JSON.stringify(state));
 
-  function debt(id){
-    let saldo = 0;
+  function balance(id){
+    let saldo = 0; // positivo = debe; negativo = saldo a favor
     state.moves.filter(m=>m.clientId===id).forEach(m=>{
       const amount = Number(m.amount || 0);
       if(m.type === "fiado") saldo += amount;
-      if(m.type === "pago" || m.type === "venta") saldo = Math.max(0, saldo - amount);
+      if(m.type === "pago" || m.type === "venta") saldo -= amount;
     });
     return saldo;
+  }
+  function debt(id){
+    return Math.max(0, balance(id));
+  }
+  function credit(id){
+    return Math.max(0, -balance(id));
+  }
+  function balanceLabel(id){
+    const d = debt(id);
+    const c = credit(id);
+    if(c > 0) return `<span class="credit">Saldo a favor: ${money(c)}</span>`;
+    if(d > 0) return `<span class="debt">${money(d)}</span>`;
+    return `<span class="ok">${money(0)}</span>`;
   }
   function client(id){ return state.clients.find(c=>c.id===id); }
   function findClient(idOrCode){ return state.clients.find(c=>c.id===idOrCode || String(c.code).toLowerCase()===String(idOrCode).toLowerCase()); }
@@ -135,7 +148,7 @@ document.addEventListener("DOMContentLoaded", function () {
     el("priceHint").textContent = `${c.name} usa ${priceListName(c.priceList)} · ${product}: ${money(unit)} x ${qty} = ${money(total)}`;
     if(el("movType").value === "pago"){
       el("movProduct").value = "Pago / Saldo";
-      el("priceHint").textContent = `${c.name} · Pago de deuda: cargá manualmente el importe que te pagó. Deuda actual: ${money(debt(c.id))}`;
+      el("priceHint").textContent = `${c.name} · Pago de deuda: cargá manualmente el importe que te pagó. Deuda actual: ${money(debt(c.id))}${credit(c.id)>0 ? " · Saldo a favor: " + money(credit(c.id)) : ""}`;
       return;
     }
     if(el("movType").value !== "no_compra") el("movAmount").value = total;
@@ -171,7 +184,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function renderDashRoute(){
     const d = el("dashDay").value || "Lunes";
     const list = state.clients.filter(c=>c.day===d).sort((a,b)=>Number(a.order)-Number(b.order)).slice(0,8);
-    el("dashRoute").innerHTML = list.map(c=>`<div class="move"><div><b>${c.code ? c.code+" · " : ""}#${c.order} ${c.name}</b><small>${c.address} · ${priceListName(c.priceList)}${c.cooler==="si" ? " · Frío/calor" : ""}</small></div><b class="${debt(c.id)>0?"debt":"ok"}">${money(debt(c.id))}</b></div>`).join("") || "<p class='muted'>Sin clientes para este día.</p>";
+    el("dashRoute").innerHTML = list.map(c=>`<div class="move"><div><b>${c.code ? c.code+" · " : ""}#${c.order} ${c.name}</b><small>${c.address} · ${priceListName(c.priceList)}${c.cooler==="si" ? " · Frío/calor" : ""}</small></div><b>${balanceLabel(c.id)}</b></div>`).join("") || "<p class='muted'>Sin clientes para este día.</p>";
   }
 
   function renderRoute(){
@@ -182,7 +195,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if(mode === "order") items = items.sort((a,b)=>Number(a.order)-Number(b.order)); else items = sortClients(items, mode);
     el("routeCards").innerHTML = items.map(c=>`<div class="client-card">
       <div class="top"><div><span class="code-badge">${c.code || "Sin código"}</span><span class="price-badge">${priceListName(c.priceList)}</span>${c.cooler==="si" ? `<span class="cooler-badge">Frío/calor</span>` : ""}<h3>#${c.order} ${c.name}</h3><p class="muted">${c.address}<br>${c.phone}</p></div><span class="badge">${c.day}</span></div>
-      <p>Fiado actual: <span class="${debt(c.id)>0?"debt":"ok"}">${money(debt(c.id))}</span></p>
+      <p>Cuenta: ${balanceLabel(c.id)}</p>
       <p class="muted">${c.note||""}${c.cooler==="si" && c.coolerDesc ? "<br>Equipo: " + c.coolerDesc : ""}</p>
       <div class="actions"><button data-prefill="${c.id}|venta">Venta</button><button data-prefill="${c.id}|fiado">Fiado</button><button data-prefill="${c.id}|pago">Pago</button></div>
     </div>`).join("") || "<div class='card'>No hay clientes con ese filtro.</div>";
@@ -205,7 +218,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const q = (el("clientSearch").value || "").toLowerCase();
     const mode = el("clientSort").value;
     const rows = sortClients(state.clients.filter(c=>((c.code||"")+c.name+c.address+c.phone+c.day).toLowerCase().includes(q)), mode);
-    el("clientTable").innerHTML = `<table><thead><tr><th>Código</th><th>Día</th><th>Orden</th><th>Cliente</th><th>Lista</th><th>Frío/calor</th><th>Teléfono</th><th>Fiado</th><th>Link</th><th>Acción</th></tr></thead><tbody>${rows.map(c=>`<tr><td><b>${c.code||"-"}</b></td><td>${c.day}</td><td>${c.order}</td><td><b>${c.name}</b><br><small>${c.address}</small></td><td>${priceListName(c.priceList)}</td><td>${c.cooler==="si" ? "Sí" : "No"}${c.coolerDesc ? "<br><small>"+c.coolerDesc+"</small>" : ""}</td><td>${c.phone}</td><td class="${debt(c.id)>0?"debt":"ok"}">${money(debt(c.id))}</td><td><button class="link-row" data-link="${c.id}">Copiar link</button></td><td><button class="delete-row" data-delete="${c.id}">Eliminar</button></td></tr>`).join("")}</tbody></table>`;
+    el("clientTable").innerHTML = `<table><thead><tr><th>Código</th><th>Día</th><th>Orden</th><th>Cliente</th><th>Lista</th><th>Frío/calor</th><th>Teléfono</th><th>Fiado</th><th>Link</th><th>Acción</th></tr></thead><tbody>${rows.map(c=>`<tr><td><b>${c.code||"-"}</b></td><td>${c.day}</td><td>${c.order}</td><td><b>${c.name}</b><br><small>${c.address}</small></td><td>${priceListName(c.priceList)}</td><td>${c.cooler==="si" ? "Sí" : "No"}${c.coolerDesc ? "<br><small>"+c.coolerDesc+"</small>" : ""}</td><td>${c.phone}</td><td>${balanceLabel(c.id)}</td><td><button class="link-row" data-link="${c.id}">Copiar link</button></td><td><button class="delete-row" data-delete="${c.id}">Eliminar</button></td></tr>`).join("")}</tbody></table>`;
     document.querySelectorAll("[data-delete]").forEach(btn=>btn.addEventListener("click", function(){ deleteClient(this.dataset.delete); }));
     document.querySelectorAll("[data-link]").forEach(btn=>btn.addEventListener("click", function(){ copyText(clientLink(this.dataset.link)); }));
   }
@@ -219,7 +232,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function portalHTML(id, publicMode=false){
-    const c = client(id) || state.clients.find(x => String(x.code).toLowerCase() === String(id).toLowerCase());
+    const c = findClient(id);
     if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consultanos por WhatsApp para verificar tu cuenta.</p></div>";
     const d = debt(id);
     const moves = state.moves.filter(m=>m.clientId===id).slice().reverse();
@@ -230,7 +243,7 @@ document.addEventListener("DOMContentLoaded", function () {
           <span class="code-badge">${c.code || "Sin código"}</span>
           <h2>Hola, ${c.name}</h2>
           <p class="muted">Este es el detalle actualizado de tu cuenta.</p>
-          <div class="public-debt ${d>0?"debt":"ok"}">${money(d)}</div>
+          ${credit(c.id)>0 ? `<div class="public-debt credit">Saldo a favor: ${money(credit(c.id))}</div>` : `<div class="public-debt ${d>0?"debt":"ok"}">${d>0 ? "Debe: " + money(d) : money(0)}</div>`}
           <p class="muted">Dirección: ${c.address}</p>${c.cooler==="si" ? `<p class="muted">Equipo frío/calor: ${c.coolerDesc || "Sí"}</p>` : ""}
         </div>
         ${publicMode ? "<div class='public-logo'>IV</div>" : ""}
@@ -295,6 +308,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function addClient(){
+    if(!isAdmin()){
+      alert("Solo Giuli/admin puede agregar clientes.");
+      return;
+    }
     state.clients.push({
       id:"c"+Date.now(),
       code:generateNextCode(),
@@ -327,10 +344,26 @@ document.addEventListener("DOMContentLoaded", function () {
     openView("cargar");
     el("movClient").value = id;
     el("movType").value = type;
-    el("movPay").value = type === "fiado" ? "Fiado" : "Efectivo";
+    el("movPay").value = "Efectivo";
     if(type === "pago") el("movProduct").value = "Pago / Saldo";
     updatePriceHint();
     el("movAmount").focus();
+  }
+
+  function applyRolePermissions(){
+    const canCreateClients = isAdmin();
+    const fields = ["clientCodePreview","clientName","clientAddress","clientPhone","clientDay","clientOrder","clientPriceList","clientCooler","clientCoolerDesc","clientNote"];
+    fields.forEach(id=>{
+      const node = el(id);
+      if(node) node.disabled = !canCreateClients;
+    });
+    if(el("saveClientBtn")){
+      el("saveClientBtn").disabled = !canCreateClients;
+      el("saveClientBtn").textContent = canCreateClients ? "Agregar cliente" : "Solo Giuli puede agregar clientes";
+    }
+    if(el("clientAdminOnlyNote")){
+      el("clientAdminOnlyNote").classList.toggle("hidden", canCreateClients);
+    }
   }
 
   function openView(viewName){
@@ -351,7 +384,7 @@ document.addEventListener("DOMContentLoaded", function () {
     renderAll();
   }
 
-  function renderAll(){ renderDashboard(); renderRoute(); renderClients(); renderDebts(); renderPortal(); renderPrices(); updateCodePreview(); }
+  function renderAll(){ renderDashboard(); renderRoute(); renderClients(); renderDebts(); renderPortal(); renderPrices(); updateCodePreview(); applyRolePermissions(); }
 
   function bootPublicIfNeeded(){
     const params = new URLSearchParams(window.location.search);
