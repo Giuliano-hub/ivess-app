@@ -86,14 +86,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     return saldo;
   }
-  function debt(c.id){
+  function debt(id){
     return Math.max(0, balance(id));
   }
   function credit(id){
     return Math.max(0, -balance(id));
   }
   function balanceLabel(id){
-    const d = debt(c.id);
+    const d = debt(id);
     const c = credit(id);
     if(c > 0) return `<span class="credit">Saldo a favor: ${money(c)}</span>`;
     if(d > 0) return `<span class="debt">${money(d)}</span>`;
