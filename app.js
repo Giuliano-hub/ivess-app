@@ -643,9 +643,7 @@ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClien
   if(!c) return alert("Cliente no encontrado");
 
   alert("FUNCIONA EDITAR: " + c.name);
-}
-    }
-    openView("clientes");
+
   }
 
   async function updateClientInCloud(c){
