@@ -674,6 +674,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
   async function addClient(){
     if(!isAdmin()) return alert("Solo Giuli/admin puede agregar clientes.");
+
+if(typeof editingClientId !== "undefined" && editingClientId){
+  const c = state.clients.find(x=>String(x.id)===String(editingClientId));
+  if(!c) return;
+  c.name = el("clientName").value;
+  c.address = el("clientAddress").value;
+  c.phone = el("clientPhone").value;
+  c.day = el("clientDay").value;
+
+  editingClientId = null;
+  el("addClientBtn").textContent = "Agregar cliente";
+  save(); fillClients(); renderAll();
+  alert("Cliente actualizado");
+  return;
+}
     
     if(editingClientId){
       const c = state.clients.find(x=>String(x.id)===String(editingClientId));
