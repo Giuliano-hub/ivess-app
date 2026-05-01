@@ -274,10 +274,10 @@ document.addEventListener("DOMContentLoaded", function () {
       .sort((a,b)=>Number(a.order)-Number(b.order));
   }
   function saveRouteModeState(){
-    sessionStorage.setItem("ivessRouteModeIndex", String(routeModeIndex));
-    sessionStorage.setItem("ivessRouteCart", JSON.stringify(routeCart));
-    sessionStorage.setItem("ivessRoutePayments", JSON.stringify(routePayments));
-  }
+  localStorage.setItem("ivessRouteModeIndex", String(routeModeIndex));
+  localStorage.setItem("ivessRouteCart", JSON.stringify(routeCart));
+  localStorage.setItem("ivessRoutePayments", JSON.stringify(routePayments));
+}
   function addQuickProduct(product){
     const c = getRouteModeClients()[routeModeIndex];
     if(!c) return;
