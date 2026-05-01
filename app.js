@@ -65,9 +65,9 @@ document.addEventListener("DOMContentLoaded", function () {
     saveSession(currentUser);
   }
   let currentUser = loadSession();
-  let routeModeIndex = Number(sessionStorage.getItem("ivessRouteModeIndex") || 0);
-  let routeCart = JSON.parse(sessionStorage.getItem("ivessRouteCart") || "[]");
-  let routePayments = JSON.parse(sessionStorage.getItem("ivessRoutePayments") || '[{"pay":"Efectivo","mode":"total","amount":0}]');
+  let routeModeIndex = Number(localStorage.getItem("ivessRouteModeIndex") || 0);
+  let routeCart = JSON.parse(localStorage.getItem("ivessRouteCart") || "[]");
+  let routePayments = JSON.parse(localStorage.getItem("ivessRoutePayments") || '[{"pay":"Efectivo","mode":"total","amount":0}]');
   routePayments = routePayments.map(p=>({pay:"Efectivo",mode:"otro",amount:0,...p}));
   const save = () => localStorage.setItem("ivessStableV5", JSON.stringify(state));
 
@@ -274,10 +274,10 @@ document.addEventListener("DOMContentLoaded", function () {
       .sort((a,b)=>Number(a.order)-Number(b.order));
   }
   function saveRouteModeState(){
-  localStorage.setItem("ivessRouteModeIndex", String(routeModeIndex));
-  localStorage.setItem("ivessRouteCart", JSON.stringify(routeCart));
-  localStorage.setItem("ivessRoutePayments", JSON.stringify(routePayments));
-}
+    localStorage.setItem("ivessRouteModeIndex", String(routeModeIndex));
+    localStorage.setItem("ivessRouteCart", JSON.stringify(routeCart));
+    localStorage.setItem("ivessRoutePayments", JSON.stringify(routePayments));
+  }
   function addQuickProduct(product){
     const c = getRouteModeClients()[routeModeIndex];
     if(!c) return;
@@ -589,8 +589,7 @@ document.addEventListener("DOMContentLoaded", function () {
     return `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${headers.length}">${empty}</td></tr>`}</tbody></table>`;
   }
   function portalHTML(id, publicMode){
-    const c = state.clients.find(x => String(x.id) === String(id) || String(x.code) === String(id)); 
-if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consultanos por WhatsApp.</p></div>";
+    const c = state.clients.find(x => String(x.id) === String(id) || String(x.code) === String(id)); if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consultanos por WhatsApp.</p></div>";
     const d=debt(c.id), cr=credit(c.id), ms=state.moves.filter(m=>m.clientId===c.id).slice().reverse();
     return `<div class="${publicMode?"public-card":""}"><div class="${publicMode?"public-top":"portal-banner"}"><div><span class="code-badge">${c.code}</span><h2>Hola, ${c.name}</h2><p class="muted">Este es el detalle actualizado de tu cuenta.</p>${cr>0?`<div class="public-debt credit">Saldo a favor: ${money(cr)}</div>`:`<div class="public-debt ${d>0?"debt":"ok"}">${d>0?"Debe: "+money(d):money(0)}</div>`}<p class="muted">Dirección: ${c.address}</p>${c.cooler==="si"?`<p class="muted">Equipo frío/calor: ${c.coolerDesc||"Sí"}</p>`:""}</div>${publicMode?"<div class='public-logo'>IV</div>":""}</div><div class="public-note">Si ya abonaste y todavía figura deuda, puede demorar hasta que el repartidor actualice el pago.</div><h3>Movimientos</h3>${ms.map(moveRow).join("")||"<p class='muted'>Sin movimientos.</p>"}</div>`;
   }
@@ -618,9 +617,99 @@ if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consult
     state.moves.push(cloudMove || newMove);
     save(); el("movAmount").value=""; el("movNote").value=""; el("movQty").value=1; renderAll(); updatePriceHint(); alert("Movimiento guardado");
   }
+  
+  let editingClientId = null;
+
+  function refreshInsertAfterOptions(){
+    const dayEl = el("clientDay");
+    const afterEl = el("clientInsertAfter");
+    if(!dayEl || !afterEl) return;
+    const d = dayEl.value || "Lunes";
+    const current = afterEl.value;
+    const opts = state.clients
+      .filter(c => c.day === d && String(c.id) !== String(editingClientId || ""))
+      .sort((a,b)=>Number(a.order||0)-Number(b.order||0));
+    afterEl.innerHTML = `<option value="">Al principio de ${d}</option>` + opts.map(c=>`<option value="${c.id}">${c.order}. ${c.code} - ${c.name}</option>`).join("");
+    if([...afterEl.options].some(o=>o.value===current)) afterEl.value = current;
+  }
+
+  function startEditClient(id){
+    const c = state.clients.find(x=>String(x.id)===String(id));
+    if(!c) return;
+    editingClientId = c.id;
+    if(el("clientName")) el("clientName").value = c.name || "";
+    if(el("clientAddress")) el("clientAddress").value = c.address || "";
+    if(el("clientPhone")) el("clientPhone").value = c.phone || "";
+    if(el("clientDay")) el("clientDay").value = c.day || "Lunes";
+    if(el("clientPriceList")) el("clientPriceList").value = c.priceList || "1";
+    if(el("clientCooler")) el("clientCooler").value = c.cooler || "no";
+    if(el("clientCoolerDesc")) el("clientCoolerDesc").value = c.coolerDesc || "";
+    if(el("clientNote")) el("clientNote").value = c.note || "";
+    refreshInsertAfterOptions();
+    if(el("addClientBtn")){
+      el("addClientBtn").textContent = "Guardar cambios";
+      if(!el("editPill")){
+        const pill = document.createElement("span");
+        pill.id = "editPill";
+        pill.className = "editing-pill";
+        pill.textContent = "Editando cliente";
+        el("addClientBtn").insertAdjacentElement("afterend", pill);
+      }
+    }
+    openView("clientes");
+  }
+
+  async function updateClientInCloud(c){
+    if(typeof supabaseDb === "undefined" || !supabaseDb) return true;
+    const payload = {
+      code:c.code, name:c.name, address:c.address, phone:c.phone, day:c.day,
+      order:Number(c.order||1), pricelist:c.priceList||"1", cooler:c.cooler||"no"
+    };
+    const { error } = await supabaseDb.from("clients").update(payload).eq("id", Number(c.id));
+    if(error){ console.error(error); alert("No pude actualizar el cliente en Supabase."); return false; }
+    return true;
+  }
+
   async function addClient(){
     if(!isAdmin()) return alert("Solo Giuli/admin puede agregar clientes.");
-    const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrder=1;
+    
+    if(editingClientId){
+      const c = state.clients.find(x=>String(x.id)===String(editingClientId));
+      if(!c) return;
+      const oldDay = c.day;
+      c.name = el("clientName").value;
+      c.address = el("clientAddress").value;
+      c.phone = el("clientPhone").value;
+      c.day = el("clientDay").value;
+      c.priceList = el("clientPriceList").value;
+      c.cooler = el("clientCooler").value;
+      if(el("clientCoolerDesc")) c.coolerDesc = el("clientCoolerDesc").value;
+      if(el("clientNote")) c.note = el("clientNote").value;
+
+      const after = el("clientInsertAfter").value;
+      let newOrder = 1;
+      if(after){
+        const prev = state.clients.find(x=>String(x.id)===String(after));
+        newOrder = prev ? Number(prev.order || 0) + 1 : 1;
+      }
+      state.clients
+        .filter(x=>x.day===c.day && String(x.id)!==String(c.id) && Number(x.order||0)>=newOrder)
+        .forEach(x=>x.order=Number(x.order||0)+1);
+      c.order = newOrder;
+
+      if(typeof recalcOrders === "function") recalcOrders(c.day);
+      if(oldDay !== c.day && typeof recalcOrders === "function") recalcOrders(oldDay);
+
+      const ok = await updateClientInCloud(c);
+      if(!ok) return;
+      editingClientId = null;
+      if(el("addClientBtn")) el("addClientBtn").textContent = "Agregar cliente";
+      if(el("editPill")) el("editPill").remove();
+      save(); fillClients(); renderAll(); refreshInsertAfterOptions();
+      alert("Cliente actualizado");
+      return;
+    }
+const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrder=1;
     if(after){ const prev=client(after); newOrder=prev?Number(prev.order)+1:1; }
     state.clients.filter(c=>c.day===day && Number(c.order)>=newOrder).forEach(c=>c.order=Number(c.order)+1);
     const newClient = {id:"c"+Date.now(),code:generateNextCode(),name:el("clientName").value||"Cliente",address:el("clientAddress").value,phone:el("clientPhone").value,day,order:newOrder,priceList:el("clientPriceList").value,cooler:el("clientCooler").value,coolerDesc:el("clientCoolerDesc").value,note:el("clientNote").value};
@@ -668,13 +757,13 @@ if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consult
 
   document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>openView(b.dataset.view));
   ["routeDay","routeSort","routeSearch","clientSearch","clientSort","salesDate","portalClient"].forEach(id=>el(id).addEventListener("input",renderAll));
-  ["sheetDay","sheetSearch"].forEach(id=>el(id).addEventListener("input",()=>{ routeModeIndex=0; routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); }));
+  ["sheetDay","sheetSearch"].forEach(id=>el(id).addEventListener("input",()=>{ routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); }));
   ["clientDay","clientInsertAfter"].forEach(id=>el(id).addEventListener("change",()=>{fillInsertAfter();renderAll();}));
   ["movClient","movProduct","movQty","movType"].forEach(id=>el(id).addEventListener("input",updatePriceHint));
   el("loginBtn").onclick=login; el("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")login();}); el("logoutBtn").onclick=logout;
   el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value));
   el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();};
-  el("startRouteModeBtn").onclick=()=>{ routeModeIndex=0; routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); };
+  el("startRouteModeBtn").onclick=()=>{ routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); };
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };
 
   save();
