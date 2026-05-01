@@ -1,7 +1,5 @@
 const SUPABASE_URL = "https://czvlyqauxidoiykagsza.supabase.co";
 const SUPABASE_KEY = "sb_publishable_X1FnC6SX7jG5fZU2EVDDOQ_Uc_GyKp0";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 const supabaseDb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -72,34 +70,6 @@ document.addEventListener("DOMContentLoaded", function () {
   let routePayments = JSON.parse(sessionStorage.getItem("ivessRoutePayments") || '[{"pay":"Efectivo","mode":"total","amount":0}]');
   routePayments = routePayments.map(p=>({pay:"Efectivo",mode:"otro",amount:0,...p}));
   const save = () => localStorage.setItem("ivessStableV5", JSON.stringify(state));
-  function dbClientToApp(r){
-    return {id:String(r.id),code:r.code||"",name:r.name||"",address:r.address||"",phone:r.phone||"",day:r.day||"Lunes",order:Number(r.order||1),priceList:r.pricelist||"1",cooler:r.cooler||"no",coolerDesc:"",note:""};
-  }
-  function appClientToDb(c){
-    return {code:c.code,name:c.name,address:c.address,phone:c.phone,day:c.day,order:Number(c.order||1),pricelist:c.priceList||"1",cooler:c.cooler||"no"};
-  }
-  function dbMoveToApp(r){
-    return {id:String(r.id),clientId:String(r.client_id),date:r.date||todayStr(),type:r.type||"venta",product:r.product||"",qty:Number(r.qty||1),pay:r.pay||"",amount:Number(r.amount||0),saleValue:Number(r.salevalue||r.amount||0),note:r.note||""};
-  }
-  function appMoveToDb(m){
-    return {client_id:Number(m.clientId),date:m.date,type:m.type,product:m.product,qty:Number(m.qty||1),pay:m.pay,amount:Number(m.amount||0),salevalue:Number(m.saleValue||m.amount||0),note:m.note||""};
-  }
-  async function loadFromSupabase(){
-    const { data: clients, error: cError } = await supabase.from("clients").select("*").order("id", { ascending: true });
-    if(cError){ console.error(cError); return false; }
-    const { data: moves, error: mError } = await supabase.from("moves").select("*").order("id", { ascending: true });
-    if(mError){ console.error(mError); return false; }
-    if(clients && clients.length){
-      state.clients = clients.map(dbClientToApp);
-    }else{
-      const { data: inserted, error } = await supabase.from("clients").insert(demo.clients.map(appClientToDb)).select();
-      if(!error && inserted) state.clients = inserted.map(dbClientToApp);
-    }
-    state.moves = (moves||[]).map(dbMoveToApp);
-    save();
-    return true;
-  }
-
 
   function dbClientRowToState(row){
     return {
@@ -147,16 +117,16 @@ document.addEventListener("DOMContentLoaded", function () {
     if(!supabaseDb) return false;
     try{
       let {data: clients, error: cErr} = await supabaseDb.from("clients").select("*").order("order", {ascending:true});
-      if(cErr){ console.error("Supabase clients error", cErr); alert("No pude leer clients en Supabase. Revisá RLS/permisos."); return false; }
+      if(cErr){ console.error("Supabase clients error", cErr); console.error("No pude leer clients en Supabase. Revisá RLS/permisos."); return false; }
       if(!clients || clients.length===0){
         const rows = demo.clients.map(clientToDbRow);
         const inserted = await supabaseDb.from("clients").insert(rows).select();
-        if(inserted.error){ console.error("Supabase seed clients error", inserted.error); alert("No pude crear clientes iniciales en Supabase."); return false; }
+        if(inserted.error){ console.error("Supabase seed clients error", inserted.error); console.error("No pude crear clientes iniciales en Supabase."); return false; }
         clients = inserted.data || [];
       }
       state.clients = (clients || []).map(dbClientRowToState);
       let {data: moves, error: mErr} = await supabaseDb.from("moves").select("*").order("id", {ascending:true});
-      if(mErr){ console.error("Supabase moves error", mErr); alert("No pude leer moves en Supabase. Revisá RLS/permisos."); return false; }
+      if(mErr){ console.error("Supabase moves error", mErr); console.error("No pude leer moves en Supabase. Revisá RLS/permisos."); return false; }
       state.moves = (moves || []).map(dbMoveRowToState);
       save();
       return true;
@@ -373,7 +343,6 @@ document.addEventListener("DOMContentLoaded", function () {
     renderRouteMode();
   }
   async function saveRouteCurrentIfNeeded(){
-    const beforeCount = state.moves.length;
     const c = getRouteModeClients()[routeModeIndex];
     if(!c) return;
     const note = el("routeModeNote") ? el("routeModeNote").value : "";
@@ -459,17 +428,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     for(const m of newMovesToSync){ await cloudInsertMove(m); }
-    const newMoves = state.moves.slice(beforeCount);
-    if(newMoves.length){
-      const { data: savedMoves, error: routeErr } = await supabase.from("moves").insert(newMoves.map(appMoveToDb)).select();
-      if(routeErr){
-        console.error(routeErr);
-        alert("No se pudo guardar la hoja de ruta en la base.");
-        state.moves = state.moves.slice(0, beforeCount);
-        return;
-      }
-      if(savedMoves) savedMoves.forEach((m,i)=>{ if(newMoves[i]) newMoves[i].id = String(m.id); });
-    }
     save();
     routeCart = [];
     routePayments = [{pay:"Efectivo", mode:"total", amount:0}];
@@ -699,7 +657,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const code=new URLSearchParams(location.search).get("cliente");
     if(!code) return false;
     await cloudLoadData();
-    el("adminApp").classList.add("hidden"); el("loginScreen").classList.add("hidden"); el("publicPortal").classList.remove("hidden"); await loadFromSupabase(); el("publicPortalContent").innerHTML=portalHTML(code,true); return true;
+    el("adminApp").classList.add("hidden"); el("loginScreen").classList.add("hidden"); el("publicPortal").classList.remove("hidden"); el("publicPortalContent").innerHTML=portalHTML(code,true); return true;
   }
 
   
