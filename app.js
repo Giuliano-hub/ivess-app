@@ -638,7 +638,7 @@ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClien
     if([...afterEl.options].some(o=>o.value===current)) afterEl.value = current;
   }
 
-  function startEditClient(id){
+ function startEditClient(id){
   const c = state.clients.find(x=>String(x.id)===String(id));
   if(!c) return alert("Cliente no encontrado");
 
