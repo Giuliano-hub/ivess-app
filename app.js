@@ -805,3 +805,39 @@ document.addEventListener("click", e=>{
     startEditClient(e.target.dataset.editClient);
   }
 });
+
+
+function injectEditButtons(){
+  const possibleDeleteButtons = Array.from(document.querySelectorAll("button")).filter(btn=>{
+    const txt = (btn.textContent || "").trim().toLowerCase();
+    return txt === "eliminar" && !btn.parentElement.querySelector(".edit-btn");
+  });
+
+  possibleDeleteButtons.forEach(btn=>{
+    let id = btn.dataset.delclient || btn.dataset.clientDelete || btn.getAttribute("data-delclient") || "";
+    if(!id){
+      const row = btn.closest("tr");
+      if(row){
+        const codeCell = row.querySelector("td");
+        const code = codeCell ? codeCell.textContent.trim() : "";
+        const c = state.clients.find(x => String(x.code) === String(code));
+        if(c) id = c.id;
+      }
+    }
+    if(!id) return;
+
+    const edit = document.createElement("button");
+    edit.textContent = "Editar";
+    edit.className = "edit-btn";
+    edit.dataset.editClient = id;
+    edit.onclick = () => startEditClient(id);
+    btn.parentElement.insertBefore(edit, btn);
+  });
+}
+
+document.addEventListener("click", e=>{
+  if(e.target.matches(".edit-btn,[data-edit-client]")){
+    const id = e.target.dataset.editClient;
+    if(id) startEditClient(id);
+  }
+});
