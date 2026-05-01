@@ -638,13 +638,26 @@ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClien
     if([...afterEl.options].some(o=>o.value===current)) afterEl.value = current;
   }
 
- function startEditClient(id){
+function startEditClient(id){
   const c = state.clients.find(x=>String(x.id)===String(id));
   if(!c) return alert("Cliente no encontrado");
 
-  alert("FUNCIONA EDITAR: " + c.name);
+  // Cargar datos en el formulario
+  el("clientCode").value = c.code;
+  el("clientName").value = c.name;
+  el("clientAddress").value = c.address;
+  el("clientPhone").value = c.phone;
+  el("clientDay").value = c.day;
+  el("clientOrder").value = c.order;
+  el("clientPriceList").value = c.pricelist;
+  el("clientCooler").value = c.cooler;
+  el("clientNotes").value = c.notes || "";
 
-  }
+  // Guardar ID en edición
+  window.editingClientId = c.id;
+
+  openView("clientes");
+}
 
   async function updateClientInCloud(c){
     if(typeof supabaseDb === "undefined" || !supabaseDb) return true;
@@ -658,6 +671,32 @@ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClien
   }
 
   async function addClient(){
+
+ 
+  if(window.editingClientId){
+    const id = window.editingClientId;
+
+    const c = state.clients.find(x=>x.id==id);
+
+    c.code = el("clientCode").value;
+    c.name = el("clientName").value;
+    c.address = el("clientAddress").value;
+    c.phone = el("clientPhone").value;
+    c.day = el("clientDay").value;
+    c.order = Number(el("clientOrder").value);
+    c.pricelist = el("clientPriceList").value;
+    c.cooler = el("clientCooler").value;
+    c.notes = el("clientNotes").value;
+
+    await updateClientInCloud(c);
+
+    window.editingClientId = null;
+
+    renderAll();
+    return;
+  }
+
+
     if(!isAdmin()) return alert("Solo Giuli/admin puede agregar clientes.");
 
 if(typeof editingClientId !== "undefined" && editingClientId){
