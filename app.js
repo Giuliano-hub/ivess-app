@@ -757,7 +757,7 @@ const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrd
     const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],cargar:["Cargar movimiento","Venta, fiado, pago o no compra."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
-  function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
+  function renderAll(){ setTimeout(injectEditButtons,0); renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
   async function initAdmin(){ await cloudLoadData(); fillBase(); renderAll(); updatePriceHint(); }
 
   async function bootPublic(){
@@ -787,4 +787,21 @@ const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrd
   (async function startApp(){
     if(!(await bootPublic())){ currentUser ? (showApp(),initAdmin()) : showLogin(); }
   })();
+});
+
+function injectEditButtons(){
+  document.querySelectorAll("[data-delclient]").forEach(btn=>{
+    if(btn.parentElement && !btn.parentElement.querySelector("[data-edit-client]")){
+      const edit = document.createElement("button");
+      edit.textContent = "Editar";
+      edit.className = "edit-client";
+      edit.dataset.editClient = btn.dataset.delclient;
+      btn.parentElement.insertBefore(edit, btn);
+    }
+  });
+}
+document.addEventListener("click", e=>{
+  if(e.target.matches("[data-edit-client]")){
+    startEditClient(e.target.dataset.editClient);
+  }
 });
