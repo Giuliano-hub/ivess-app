@@ -639,27 +639,11 @@ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClien
   }
 
   function startEditClient(id){
-    const c = state.clients.find(x=>String(x.id)===String(id));
-    if(!c) return;
-    editingClientId = c.id;
-    if(el("clientName")) el("clientName").value = c.name || "";
-    if(el("clientAddress")) el("clientAddress").value = c.address || "";
-    if(el("clientPhone")) el("clientPhone").value = c.phone || "";
-    if(el("clientDay")) el("clientDay").value = c.day || "Lunes";
-    if(el("clientPriceList")) el("clientPriceList").value = c.priceList || "1";
-    if(el("clientCooler")) el("clientCooler").value = c.cooler || "no";
-    if(el("clientCoolerDesc")) el("clientCoolerDesc").value = c.coolerDesc || "";
-    if(el("clientNote")) el("clientNote").value = c.note || "";
-    refreshInsertAfterOptions();
-    if(el("addClientBtn")){
-      el("addClientBtn").textContent = "Guardar cambios";
-      if(!el("editPill")){
-        const pill = document.createElement("span");
-        pill.id = "editPill";
-        pill.className = "editing-pill";
-        pill.textContent = "Editando cliente";
-        el("addClientBtn").insertAdjacentElement("afterend", pill);
-      }
+  const c = state.clients.find(x=>String(x.id)===String(id));
+  if(!c) return alert("Cliente no encontrado");
+
+  alert("FUNCIONA EDITAR: " + c.name);
+}
     }
     openView("clientes");
   }
