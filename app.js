@@ -546,7 +546,9 @@ document.addEventListener("DOMContentLoaded", function () {
   function renderClients(){
     const q=(el("clientSearch").value||"").toLowerCase(), mode=el("clientSort").value;
     const rows=sortClients(state.clients.filter(c=>(c.code+c.name+c.address+c.phone+c.day).toLowerCase().includes(q)),mode);
-    el("clientTable").innerHTML=table(["Código","Día","Orden","Cliente","Lista","Frío/calor","Teléfono","Cuenta","Link","Acción"],rows.map(c=>[c.code,c.day,c.order,`<b>${c.name}</b><br><small>${c.address}</small>`,priceListName(c.priceList),`${c.cooler==="si"?"Sí":"No"}${c.coolerDesc?`<br><small>${c.coolerDesc}</small>`:""}`,c.phone,balanceLabel(c.id),`<button class="link-row" data-link="${c.id}">Copiar link</button>`,isAdmin()?`<button class="delete-row" data-delete="${c.id}">Eliminar</button>`:""]),"Sin clientes.");
+    el("clientTable").innerHTML=table(["Código","Día","Orden","Cliente","Lista","Frío/calor","Teléfono","Cuenta","Link","Acción"],rows.map(c=>[c.code,c.day,c.order,`<b>${c.name}</b><br><small>${c.address}</small>`,priceListName(c.priceList),`${c.cooler==="si"?"Sí":"No"}${c.coolerDesc?`<br><small>${c.coolerDesc}</small>`:""}`,c.phone,balanceLabel(c.id),`<button class="link-row" data-link="${c.id}">Copiar link</button>`,isAdmin()?`<button class="edit-row" data-edit="${c.id}">Editar</button>
+  <button class="delete-row" data-delete="${c.id}">Eliminar</button>
+`:""]),"Sin clientes.");
     document.querySelectorAll("[data-link]").forEach(b=>b.onclick=()=>copyText(clientLink(b.dataset.link)));
     document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteClient(b.dataset.delete));
   }
