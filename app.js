@@ -589,7 +589,8 @@ document.addEventListener("DOMContentLoaded", function () {
     return `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${headers.length}">${empty}</td></tr>`}</tbody></table>`;
   }
   function portalHTML(id, publicMode){
-    const c=findClient(id); if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consultanos por WhatsApp.</p></div>";
+    const c = state.clients.find(x => String(x.id) === String(id) || String(x.code) === String(id)); 
+if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consultanos por WhatsApp.</p></div>";
     const d=debt(c.id), cr=credit(c.id), ms=state.moves.filter(m=>m.clientId===c.id).slice().reverse();
     return `<div class="${publicMode?"public-card":""}"><div class="${publicMode?"public-top":"portal-banner"}"><div><span class="code-badge">${c.code}</span><h2>Hola, ${c.name}</h2><p class="muted">Este es el detalle actualizado de tu cuenta.</p>${cr>0?`<div class="public-debt credit">Saldo a favor: ${money(cr)}</div>`:`<div class="public-debt ${d>0?"debt":"ok"}">${d>0?"Debe: "+money(d):money(0)}</div>`}<p class="muted">Dirección: ${c.address}</p>${c.cooler==="si"?`<p class="muted">Equipo frío/calor: ${c.coolerDesc||"Sí"}</p>`:""}</div>${publicMode?"<div class='public-logo'>IV</div>":""}</div><div class="public-note">Si ya abonaste y todavía figura deuda, puede demorar hasta que el repartidor actualice el pago.</div><h3>Movimientos</h3>${ms.map(moveRow).join("")||"<p class='muted'>Sin movimientos.</p>"}</div>`;
   }
