@@ -551,6 +551,7 @@ document.addEventListener("DOMContentLoaded", function () {
 `:""]),"Sin clientes.");
     document.querySelectorAll("[data-link]").forEach(b=>b.onclick=()=>copyText(clientLink(b.dataset.link)));
     document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteClient(b.dataset.delete));
+document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClient(b.dataset.edit));
   }
   function renderDebts(){
     const totalDebt=state.clients.reduce((s,c)=>s+debt(c.id),0), totalCredit=state.clients.reduce((s,c)=>s+credit(c.id),0);
