@@ -1,3 +1,7 @@
+const SUPABASE_URL = "https://czvlyqauxidoiykagsza.supabase.co";
+const SUPABASE_KEY = "sb_publishable_X1FnC6SX7jG5fZU2EVDDOQ_Uc_GyKp0";
+const supabaseDb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
 document.addEventListener("DOMContentLoaded", function () {
   const days = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
   const products = ["20L","20L Bajo Sodio","12L","12L Bajo Sodio","Soda vidrio","Soda plástico","Pago / Saldo","Otro"];
@@ -66,6 +70,96 @@ document.addEventListener("DOMContentLoaded", function () {
   let routePayments = JSON.parse(sessionStorage.getItem("ivessRoutePayments") || '[{"pay":"Efectivo","mode":"total","amount":0}]');
   routePayments = routePayments.map(p=>({pay:"Efectivo",mode:"otro",amount:0,...p}));
   const save = () => localStorage.setItem("ivessStableV5", JSON.stringify(state));
+
+  function dbClientRowToState(row){
+    return {
+      id: row.id,
+      code: row.code || "",
+      name: row.name || "Cliente",
+      address: row.address || "",
+      phone: row.phone || "",
+      day: row.day || "Lunes",
+      order: Number(row.order || 1),
+      priceList: row.pricelist || row.priceList || "1",
+      cooler: row.cooler || "no",
+      coolerDesc: row.coolerdesc || "",
+      note: row.note || ""
+    };
+  }
+  function dbMoveRowToState(row){
+    return {
+      id: row.id,
+      clientId: row.client_id,
+      date: row.date || todayStr(),
+      type: row.type || "venta",
+      product: row.product || "Otro",
+      qty: Number(row.qty || 1),
+      pay: row.pay || "Efectivo",
+      amount: Number(row.amount || 0),
+      saleValue: Number(row.salevalue || row.saleValue || row.amount || 0),
+      note: row.note || ""
+    };
+  }
+  function clientToDbRow(c){
+    return {
+      code:c.code, name:c.name, address:c.address, phone:c.phone, day:c.day,
+      order:Number(c.order||1), pricelist:c.priceList || "1", cooler:c.cooler || "no"
+    };
+  }
+  function moveToDbRow(m){
+    return {
+      client_id:Number(m.clientId), date:m.date, type:m.type, product:m.product,
+      qty:Number(m.qty||1), pay:m.pay || "", amount:Number(m.amount||0),
+      salevalue:Number(m.saleValue ?? m.salevalue ?? m.amount ?? 0), note:m.note || ""
+    };
+  }
+  async function cloudLoadData(){
+    if(!supabaseDb) return false;
+    try{
+      let {data: clients, error: cErr} = await supabaseDb.from("clients").select("*").order("order", {ascending:true});
+      if(cErr){ console.error("Supabase clients error", cErr); alert("No pude leer clients en Supabase. Revisá RLS/permisos."); return false; }
+      if(!clients || clients.length===0){
+        const rows = demo.clients.map(clientToDbRow);
+        const inserted = await supabaseDb.from("clients").insert(rows).select();
+        if(inserted.error){ console.error("Supabase seed clients error", inserted.error); alert("No pude crear clientes iniciales en Supabase."); return false; }
+        clients = inserted.data || [];
+      }
+      state.clients = (clients || []).map(dbClientRowToState);
+      let {data: moves, error: mErr} = await supabaseDb.from("moves").select("*").order("id", {ascending:true});
+      if(mErr){ console.error("Supabase moves error", mErr); alert("No pude leer moves en Supabase. Revisá RLS/permisos."); return false; }
+      state.moves = (moves || []).map(dbMoveRowToState);
+      save();
+      return true;
+    }catch(e){
+      console.error("Supabase load exception", e);
+      alert("Error conectando con Supabase.");
+      return false;
+    }
+  }
+  async function cloudInsertMove(m){
+    if(!supabaseDb) return null;
+    const row = moveToDbRow(m);
+    const {data, error} = await supabaseDb.from("moves").insert([row]).select().single();
+    if(error){ console.error("Supabase insert move error", error); alert("Se guardó local, pero NO en Supabase: " + error.message); return null; }
+    return dbMoveRowToState(data);
+  }
+  async function cloudInsertClient(c){
+    if(!supabaseDb) return null;
+    const {data, error} = await supabaseDb.from("clients").insert([clientToDbRow(c)]).select().single();
+    if(error){ console.error("Supabase insert client error", error); alert("No pude guardar cliente en Supabase: " + error.message); return null; }
+    return dbClientRowToState(data);
+  }
+  async function cloudDeleteMove(id){
+    if(!supabaseDb) return;
+    const {error} = await supabaseDb.from("moves").delete().eq("id", Number(id));
+    if(error){ console.error("Supabase delete move error", error); alert("No pude borrar en Supabase: " + error.message); }
+  }
+  async function cloudDeleteClient(id){
+    if(!supabaseDb) return;
+    await supabaseDb.from("moves").delete().eq("client_id", Number(id));
+    const {error} = await supabaseDb.from("clients").delete().eq("id", Number(id));
+    if(error){ console.error("Supabase delete client error", error); alert("No pude borrar cliente en Supabase: " + error.message); }
+  }
   function isAdmin(){ return currentUser && currentUser.role==="admin"; }
   function isIvan(){ return currentUser && currentUser.role==="repartidor"; }
   function client(id){ return state.clients.find(c=>c.id===id); }
@@ -248,16 +342,18 @@ document.addEventListener("DOMContentLoaded", function () {
     saveRouteModeState();
     renderRouteMode();
   }
-  function saveRouteCurrentIfNeeded(){
+  async function saveRouteCurrentIfNeeded(){
     const c = getRouteModeClients()[routeModeIndex];
     if(!c) return;
     const note = el("routeModeNote") ? el("routeModeNote").value : "";
     const total = routeCartTotal();
     const payments = resolvedRoutePayments().filter(p=>Number(p.amount||0)>0);
     const paid = payments.reduce((s,p)=>s+Number(p.amount||0),0);
+    const newMovesToSync = [];
+    function pushRouteMove(m){ state.moves.push(m); newMovesToSync.push(m); }
 
     if(el("routeModeNoCompra") && el("routeModeNoCompra").checked){
-      state.moves.push({id:uid(),clientId:c.id,date:todayStr(),type:"no_compra",product:"-",qty:0,pay:"-",amount:0,saleValue:0,note:note || "No compró / no estaba"});
+      pushRouteMove({id:uid(),clientId:c.id,date:todayStr(),type:"no_compra",product:"-",qty:0,pay:"-",amount:0,saleValue:0,note:note || "No compró / no estaba"});
     } else if(total > 0 || paid > 0){
       // Guarda productos vendidos. amount = cuánto se cobró aplicado a cada producto.
       let remainingPaidForItems = Math.min(paid, total);
@@ -265,7 +361,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const itemValue = Number(item.total||0);
         const paidApplied = Math.min(itemValue, remainingPaidForItems);
         remainingPaidForItems -= paidApplied;
-        state.moves.push({
+        pushRouteMove({
           id:uid(),
           clientId:c.id,
           date:todayStr(),
@@ -281,7 +377,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Si pagó menos que el total vendido, registra la diferencia como fiado.
       if(paid < total){
-        state.moves.push({
+        pushRouteMove({
           id:uid(),
           clientId:c.id,
           date:todayStr(),
@@ -298,7 +394,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // Si pagó de más, registra el excedente como pago/saldo a favor.
       if(paid > total){
         const extra = paid - total;
-        state.moves.push({
+        pushRouteMove({
           id:uid(),
           clientId:c.id,
           date:todayStr(),
@@ -331,14 +427,15 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
+    for(const m of newMovesToSync){ await cloudInsertMove(m); }
     save();
     routeCart = [];
     routePayments = [{pay:"Efectivo", mode:"total", amount:0}];
     if(el("routeModeNote")) el("routeModeNote").value = "";
     saveRouteModeState();
   }
-  function routeNext(){
-    saveRouteCurrentIfNeeded();
+  async function routeNext(){
+    await saveRouteCurrentIfNeeded();
     const list = getRouteModeClients();
     routeModeIndex = Math.min(routeModeIndex + 1, Math.max(0, list.length - 1));
     saveRouteModeState();
@@ -497,14 +594,14 @@ document.addEventListener("DOMContentLoaded", function () {
     return `<div class="${publicMode?"public-card":""}"><div class="${publicMode?"public-top":"portal-banner"}"><div><span class="code-badge">${c.code}</span><h2>Hola, ${c.name}</h2><p class="muted">Este es el detalle actualizado de tu cuenta.</p>${cr>0?`<div class="public-debt credit">Saldo a favor: ${money(cr)}</div>`:`<div class="public-debt ${d>0?"debt":"ok"}">${d>0?"Debe: "+money(d):money(0)}</div>`}<p class="muted">Dirección: ${c.address}</p>${c.cooler==="si"?`<p class="muted">Equipo frío/calor: ${c.coolerDesc||"Sí"}</p>`:""}</div>${publicMode?"<div class='public-logo'>IV</div>":""}</div><div class="public-note">Si ya abonaste y todavía figura deuda, puede demorar hasta que el repartidor actualice el pago.</div><h3>Movimientos</h3>${ms.map(moveRow).join("")||"<p class='muted'>Sin movimientos.</p>"}</div>`;
   }
 
-  function addMovement(){
+  async function addMovement(){
     const movType = el("movType").value;
     const movClientId = el("movClient").value;
     const movProduct = el("movProduct").value;
     const movQty = Number(el("movQty").value||1);
     const enteredAmount = Number(el("movAmount").value||0);
     const calculatedSaleValue = (movType==="venta" || movType==="fiado") ? getUnitPrice(movClientId, movProduct) * movQty : 0;
-    state.moves.push({
+    const newMove = {
       id:uid(),
       clientId:movClientId,
       date:todayStr(),
@@ -515,19 +612,23 @@ document.addEventListener("DOMContentLoaded", function () {
       amount:enteredAmount,
       saleValue: calculatedSaleValue || enteredAmount,
       note:el("movNote").value
-    });
+    };
+    const cloudMove = await cloudInsertMove(newMove);
+    state.moves.push(cloudMove || newMove);
     save(); el("movAmount").value=""; el("movNote").value=""; el("movQty").value=1; renderAll(); updatePriceHint(); alert("Movimiento guardado");
   }
-  function addClient(){
+  async function addClient(){
     if(!isAdmin()) return alert("Solo Giuli/admin puede agregar clientes.");
     const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrder=1;
     if(after){ const prev=client(after); newOrder=prev?Number(prev.order)+1:1; }
     state.clients.filter(c=>c.day===day && Number(c.order)>=newOrder).forEach(c=>c.order=Number(c.order)+1);
-    state.clients.push({id:"c"+Date.now(),code:generateNextCode(),name:el("clientName").value||"Cliente",address:el("clientAddress").value,phone:el("clientPhone").value,day,order:newOrder,priceList:el("clientPriceList").value,cooler:el("clientCooler").value,coolerDesc:el("clientCoolerDesc").value,note:el("clientNote").value});
+    const newClient = {id:"c"+Date.now(),code:generateNextCode(),name:el("clientName").value||"Cliente",address:el("clientAddress").value,phone:el("clientPhone").value,day,order:newOrder,priceList:el("clientPriceList").value,cooler:el("clientCooler").value,coolerDesc:el("clientCoolerDesc").value,note:el("clientNote").value};
+    const cloudClient = await cloudInsertClient(newClient);
+    state.clients.push(cloudClient || newClient);
     recalcOrders(day); save(); ["clientName","clientAddress","clientPhone","clientOrder","clientCoolerDesc","clientNote"].forEach(id=>el(id).value=""); el("clientCooler").value="no"; fillClients(); renderAll(); alert("Cliente agregado");
   }
-  function deleteClient(id){ const c=client(id); if(!isAdmin()) return; if(confirm(`¿Eliminar a ${c?.name}? También se borrarán sus movimientos.`)){ state.clients=state.clients.filter(c=>c.id!==id); state.moves=state.moves.filter(m=>m.clientId!==id); save(); fillClients(); renderAll(); } }
-  function deleteMove(id){ const m=state.moves.find(x=>x.id===id); if(!m || !canDeleteMove(m)) return alert("No tenés permiso para borrar este movimiento."); const c=client(m.clientId)||{}; if(confirm(`¿Eliminar ${label(m.type)} de ${c.name} por ${money(m.amount)}?`)){ state.moves=state.moves.filter(x=>x.id!==id); save(); renderAll(); } }
+  async function deleteClient(id){ const c=client(id); if(!isAdmin()) return; if(confirm(`¿Eliminar a ${c?.name}? También se borrarán sus movimientos.`)){ await cloudDeleteClient(id); state.clients=state.clients.filter(c=>c.id!==id); state.moves=state.moves.filter(m=>m.clientId!==id); save(); fillClients(); renderAll(); } }
+  async function deleteMove(id){ const m=state.moves.find(x=>x.id==id); if(!m || !canDeleteMove(m)) return alert("No tenés permiso para borrar este movimiento."); const c=client(m.clientId)||{}; if(confirm(`¿Eliminar ${label(m.type)} de ${c.name} por ${money(m.amount)}?`)){ await cloudDeleteMove(id); state.moves=state.moves.filter(x=>x.id!=id); save(); renderAll(); } }
   function savePrices(){ if(!isAdmin()) return alert("Solo Giuli puede modificar precios."); document.querySelectorAll("[data-price-list]").forEach(inp=>{state.priceLists[inp.dataset.priceList].prices[inp.dataset.product]=Number(inp.value||0);}); save(); renderAll(); alert("Precios guardados"); }
   function prefill(id,type){ openView("cargar"); el("movClient").value=id; el("movType").value=type; el("movPay").value="Efectivo"; if(type==="pago") el("movProduct").value="Pago / Saldo"; updatePriceHint(); el("movAmount").focus(); }
   function bindPrefill(){ document.querySelectorAll("[data-prefill]").forEach(b=>b.onclick=()=>{const [id,type]=b.dataset.prefill.split("|"); prefill(id,type);}); }
@@ -550,11 +651,12 @@ document.addEventListener("DOMContentLoaded", function () {
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
   function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
-  function initAdmin(){ fillBase(); renderAll(); updatePriceHint(); }
+  async function initAdmin(){ await cloudLoadData(); fillBase(); renderAll(); updatePriceHint(); }
 
-  function bootPublic(){
+  async function bootPublic(){
     const code=new URLSearchParams(location.search).get("cliente");
     if(!code) return false;
+    await cloudLoadData();
     el("adminApp").classList.add("hidden"); el("loginScreen").classList.add("hidden"); el("publicPortal").classList.remove("hidden"); el("publicPortalContent").innerHTML=portalHTML(code,true); return true;
   }
 
@@ -575,5 +677,7 @@ document.addEventListener("DOMContentLoaded", function () {
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };
 
   save();
-  if(!bootPublic()){ currentUser ? (showApp(),initAdmin()) : showLogin(); }
+  (async function startApp(){
+    if(!(await bootPublic())){ currentUser ? (showApp(),initAdmin()) : showLogin(); }
+  })();
 });
