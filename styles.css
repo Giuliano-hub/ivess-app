@@ -52,3 +52,18 @@ table{width:100%;border-collapse:collapse}th,td{padding:13px;border-bottom:1px s
 button[data-view="movimiento"], button[data-view="movement"], .nav[data-view="movimiento"], .nav[data-view="movement"]{display:none!important}
 .edit-client{border:1px solid #8ec5ff;background:#e8f3ff;color:#075ca8;border-radius:10px;padding:8px 10px;font-weight:800;cursor:pointer;margin-right:6px}
 .editing-pill{display:inline-block;background:#fff7e6;border:1px solid #ffd38a;color:#8a5a00;border-radius:999px;padding:4px 8px;font-size:12px;margin-left:6px}
+
+.version-badge-v8{
+  position:fixed;
+  top:10px;
+  right:10px;
+  z-index:99999;
+  background:#0f72ff;
+  color:white;
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:900;
+  font-size:13px;
+  box-shadow:0 8px 24px rgba(0,0,0,.2);
+}
+button[data-view="movimiento"], button[data-view="movement"], .nav[data-view="movimiento"], .nav[data-view="movement"]{display:none!important}
