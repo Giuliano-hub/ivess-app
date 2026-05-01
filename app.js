@@ -1,4 +1,4 @@
-console.log("IVESS V8 Hoja de ruta PRO cargado");
+console.log("IVESS V8.1 recuerda cliente actual cargado");
 const SUPABASE_URL = "https://czvlyqauxidoiykagsza.supabase.co";
 const SUPABASE_KEY = "sb_publishable_X1FnC6SX7jG5fZU2EVDDOQ_Uc_GyKp0";
 const supabaseDb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
@@ -450,6 +450,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function renderRouteMode(){
     const list = getRouteModeClients();
     if(routeModeIndex >= list.length) routeModeIndex = Math.max(0, list.length - 1);
+    saveRouteModeState();
     const c = list[routeModeIndex];
     if(!c){
       el("routeModeClient").innerHTML = "<div class='muted'>No hay clientes para esta hoja de ruta.</div>";
