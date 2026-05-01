@@ -676,7 +676,7 @@ function startEditClient(id){
   if(window.editingClientId){
     const id = window.editingClientId;
 
-    const c = state.clients.find(x=>x.id==id);
+   const c = state.clients.find(x=>String(x.id)===String(id));
 
     c.code = el("clientCode").value;
     c.name = el("clientName").value;
