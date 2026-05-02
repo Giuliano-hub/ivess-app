@@ -718,40 +718,78 @@ function refreshInsertAfterOptions(){
     return true;
   }
 
+
+  async function updateRouteClientsInCloud(daysToUpdate){
+    if(typeof supabaseDb === "undefined" || !supabaseDb) return true;
+    const days = Array.from(new Set(daysToUpdate.filter(Boolean)));
+    const clientsToUpdate = state.clients.filter(c=>days.includes(c.day));
+    for(const c of clientsToUpdate){
+      const { error } = await supabaseDb.from("clients").update({
+        day: c.day,
+        order: Number(c.order || 1),
+        name: c.name,
+        address: c.address,
+        phone: c.phone,
+        pricelist: c.priceList || "1",
+        cooler: c.cooler || "no"
+      }).eq("id", Number(c.id));
+      if(error){
+        console.error(error);
+        alert("No pude actualizar el orden en Supabase.");
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function placeClientAfter(clientToMove, targetDay, afterId){
+    const oldDay = clientToMove.day;
+
+    // Saca temporalmente al cliente de su lugar anterior para cerrar huecos.
+    clientToMove.order = 999999;
+    recalcOrders(oldDay);
+
+    clientToMove.day = targetDay;
+
+    let targetOrder = 1;
+    if(afterId){
+      const previous = state.clients.find(x=>String(x.id)===String(afterId));
+      if(previous && previous.day === targetDay){
+        targetOrder = Number(previous.order || 0) + 1;
+      }
+    }
+
+    state.clients
+      .filter(x=>x.day===targetDay && String(x.id)!==String(clientToMove.id) && Number(x.order||0)>=targetOrder)
+      .forEach(x=>x.order = Number(x.order||0) + 1);
+
+    clientToMove.order = targetOrder;
+    recalcOrders(targetDay);
+
+    return [oldDay, targetDay];
+  }
+
 async function addClient(){
     if(!isAdmin()) return alert("Solo Giuli/admin puede agregar clientes.");
+
+    const selectedDay = el("clientDay").value || "Lunes";
+    const afterId = el("clientInsertAfter") ? el("clientInsertAfter").value : "";
 
     if(editingClientId){
       const c = state.clients.find(x=>String(x.id)===String(editingClientId));
       if(!c) return alert("No encontré el cliente a editar");
 
-      const oldDay = c.day;
-
       c.name = el("clientName").value || "Cliente";
       c.address = el("clientAddress").value || "";
       c.phone = el("clientPhone").value || "";
-      c.day = el("clientDay").value || "Lunes";
       c.priceList = el("clientPriceList").value || "1";
       c.cooler = el("clientCooler").value || "no";
       c.coolerDesc = el("clientCoolerDesc").value || "";
       c.note = el("clientNote").value || "";
 
-      const after = el("clientInsertAfter") ? el("clientInsertAfter").value : "";
-      let newOrder = Number(c.order || 1);
+      const changedDays = placeClientAfter(c, selectedDay, afterId);
 
-      if(after){
-        const prev = client(after);
-        newOrder = prev ? Number(prev.order || 0) + 1 : 1;
-        state.clients
-          .filter(x=>x.day===c.day && String(x.id)!==String(c.id) && Number(x.order||0)>=newOrder)
-          .forEach(x=>x.order=Number(x.order||0)+1);
-        c.order = newOrder;
-      }
-
-      recalcOrders(c.day);
-      if(oldDay !== c.day) recalcOrders(oldDay);
-
-      const ok = await updateClientInCloud(c);
+      const ok = await updateRouteClientsInCloud(changedDays);
       if(!ok) return;
 
       editingClientId = null;
@@ -760,23 +798,20 @@ async function addClient(){
       save();
       fillClients();
       renderAll();
-      alert("Cliente actualizado");
+      alert("Cliente actualizado y reubicado");
       return;
     }
 
-    const day = el("clientDay").value || "Lunes";
-    const after = el("clientInsertAfter") ? el("clientInsertAfter").value : "";
     let newOrder = 1;
-
-    if(after){
-      const prev = client(after);
-      if(prev && prev.day === day){
-        newOrder = Number(prev.order || 0) + 1;
+    if(afterId){
+      const previous = state.clients.find(x=>String(x.id)===String(afterId));
+      if(previous && previous.day === selectedDay){
+        newOrder = Number(previous.order || 0) + 1;
       }
     }
 
     state.clients
-      .filter(c=>c.day===day && Number(c.order || 0) >= newOrder)
+      .filter(c=>c.day===selectedDay && Number(c.order || 0) >= newOrder)
       .forEach(c=>c.order = Number(c.order || 0) + 1);
 
     const newClient = {
@@ -785,7 +820,7 @@ async function addClient(){
       name:el("clientName").value || "Cliente",
       address:el("clientAddress").value,
       phone:el("clientPhone").value,
-      day,
+      day:selectedDay,
       order:newOrder,
       priceList:el("clientPriceList").value,
       cooler:el("clientCooler").value,
@@ -796,7 +831,9 @@ async function addClient(){
     const cloudClient = await cloudInsertClient(newClient);
     state.clients.push(cloudClient || newClient);
 
-    recalcOrders(day);
+    recalcOrders(selectedDay);
+    await updateRouteClientsInCloud([selectedDay]);
+
     save();
 
     ["clientName","clientAddress","clientPhone","clientOrder","clientCoolerDesc","clientNote"].forEach(id=>{ if(el(id)) el(id).value=""; });
