@@ -462,7 +462,106 @@ document.addEventListener("DOMContentLoaded", function () {
     saveRouteModeState();
     renderAll();
   }
-  function renderRouteMode(){
+  
+  function simpleCloseStore(){
+    try { return JSON.parse(localStorage.getItem("ivessSimpleCloseSent") || "{}"); }
+    catch(e){ return {}; }
+  }
+
+  function simpleCloseSaveStore(store){
+    localStorage.setItem("ivessSimpleCloseSent", JSON.stringify(store || {}));
+  }
+
+  function simpleCloseToday(){
+    return new Date().toISOString().slice(0,10);
+  }
+
+  function simpleCloseDay(){
+    if(el("sheetDay")) return el("sheetDay").value || "Lunes";
+    if(el("routeDay")) return el("routeDay").value || "Lunes";
+    return "Lunes";
+  }
+
+  function simpleCloseMessage(clientId){
+    const c = client(clientId);
+    if(!c) return "";
+    const link = clientLink(c.id);
+    return "Hola " + c.name + ", te compartimos tu link para que puedas ver tu cuenta y saldo actualizado en cualquier momento:\\n\\n" +
+      link +
+      "\\n\\nActualmente figura un saldo pendiente. Este mensaje forma parte de nuestros recordatorios automáticos para mantener la cuenta al día.";
+  }
+
+  function simpleCloseDebtors(){
+    const d = simpleCloseDay();
+    const sent = simpleCloseStore();
+    return state.clients
+      .filter(c => c.day === d)
+      .map(c => Object.assign({}, c, {currentDebt: debt(c.id), sentToday: sent[String(c.id)] === simpleCloseToday()}))
+      .filter(c => c.currentDebt > 0)
+      .sort((a,b) => b.currentDebt - a.currentDebt);
+  }
+
+  function simpleCloseRender(){
+    const box = el("simpleCloseRouteSummary");
+    if(!box) return;
+
+    const d = simpleCloseDay();
+    const list = simpleCloseDebtors();
+
+    if(!list.length){
+      box.innerHTML = '<p class="muted">No hay clientes de ' + d + ' con saldo pendiente.</p>';
+      return;
+    }
+
+    const pending = list.filter(c => !c.sentToday);
+    box.innerHTML =
+      '<p class="muted"><b>' + list.length + '</b> clientes de ' + d + ' con saldo pendiente. Pendientes de enviar hoy: <b>' + pending.length + '</b>.</p>' +
+      list.map(c =>
+        '<div class="simple-close-row">' +
+          '<div><b>' + c.code + ' · ' + c.name + '</b><br><small>' + (c.address || '') + (c.city ? ' - ' + c.city : '') + (c.sentToday ? ' · Enviado hoy' : '') + '</small></div>' +
+          '<div class="simple-close-debt">' + money(c.currentDebt) + '</div>' +
+          '<div><button class="simple-close-wa" data-simple-close-wa="' + c.id + '">WhatsApp</button>' +
+          '<button class="simple-close-sent" data-simple-close-sent="' + c.id + '">Marcar enviado</button></div>' +
+        '</div>'
+      ).join('');
+
+    document.querySelectorAll("[data-simple-close-wa]").forEach(b => b.onclick = () => simpleCloseWhatsapp(b.dataset.simpleCloseWa));
+    document.querySelectorAll("[data-simple-close-sent]").forEach(b => b.onclick = () => simpleCloseMarkSent(b.dataset.simpleCloseSent));
+  }
+
+  function simpleCloseMarkSent(clientId){
+    const store = simpleCloseStore();
+    store[String(clientId)] = simpleCloseToday();
+    simpleCloseSaveStore(store);
+    simpleCloseRender();
+  }
+
+  function simpleCloseWhatsapp(clientId){
+    const raw = String(clientId || "").trim();
+    const c = client(raw) || state.clients.find(x => String(x.id) === raw || String(x.code) === raw);
+    if(!c) return alert("Cliente no encontrado.");
+    const phone = cleanWhatsappPhone(c.phone);
+    if(!phone) return alert("Este cliente no tiene teléfono cargado.");
+    const msg = encodeURIComponent(simpleCloseMessage(c.id));
+    window.open("https://wa.me/" + phone + "?text=" + msg, "_blank");
+    simpleCloseMarkSent(c.id);
+  }
+
+  function simpleCloseResetRoute(){
+    if(typeof routeModeIndex !== "undefined") routeModeIndex = 0;
+    if(typeof routeCart !== "undefined") routeCart = [];
+    if(typeof routePayments !== "undefined") routePayments = [{pay:"Efectivo", mode:"total", amount:0}];
+    if(typeof saveRouteModeState === "function") saveRouteModeState();
+  }
+
+  function simpleClosePrepare(){
+    simpleCloseResetRoute();
+    simpleCloseRender();
+    alert("Hoja de ruta cerrada. El reparto queda preparado para arrancar desde el primer cliente.");
+  }
+
+
+function renderRouteMode(){
     const list = getRouteModeClients();
     if(routeModeIndex >= list.length) routeModeIndex = Math.max(0, list.length - 1);
     saveRouteModeState();
@@ -1219,7 +1318,7 @@ function applyRolePermissions(){
     const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
-  function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
+  function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); simpleCloseRender(); applyRolePermissions(); }
   async function initAdmin(){ await cloudLoadData(); fillBase(); renderAll(); updatePriceHint(); }
 
   async function bootPublic(){
@@ -1262,4 +1361,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
       if(box) box.innerHTML = "";
     };
   }
+});
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("simpleCloseRouteBtn");
+  if(btn) btn.onclick = simpleClosePrepare;
 });
