@@ -576,7 +576,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function whatsappClientMessage(clientId){
-    const c = client(clientId);
+    let raw = String(clientId || "").trim();
+const codeFromLabel = raw.includes(" - ") ? raw.split(" - ")[0].trim() : raw;
+const c =
+  client(raw) ||
+  state.clients.find(x => String(x.id) === raw) ||
+  state.clients.find(x => String(x.code) === raw) ||
+  state.clients.find(x => String(x.code) === codeFromLabel);
     if(!c) return "";
     const link = clientLink(c.id);
     const saldo = debt(c.id) > 0 ? `Actualmente figura una deuda de ${money(debt(c.id))}.` : (credit(c.id) > 0 ? `Actualmente tenés saldo a favor de ${money(credit(c.id))}.` : "Actualmente tu cuenta figura en $0.");
@@ -604,7 +610,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function closeRouteMessage(clientId){
-    const c = client(clientId);
+    let raw = String(clientId || "").trim();
+const codeFromLabel = raw.includes(" - ") ? raw.split(" - ")[0].trim() : raw;
+const c =
+  client(raw) ||
+  state.clients.find(x => String(x.id) === raw) ||
+  state.clients.find(x => String(x.code) === raw) ||
+  state.clients.find(x => String(x.code) === codeFromLabel);
     if(!c) return "";
     const link = clientLink(c.id);
     return `Hola ${c.name}, te compartimos tu link para que puedas ver tu cuenta y saldo actualizado en cualquier momento:
@@ -622,12 +634,18 @@ Actualmente figura un saldo pendiente. Este mensaje forma parte de nuestros reco
   }
 
   function openCloseRouteWhatsapp(clientId){
-    const c = client(clientId);
+    let raw = String(clientId || "").trim();
+const codeFromLabel = raw.includes(" - ") ? raw.split(" - ")[0].trim() : raw;
+const c =
+  client(raw) ||
+  state.clients.find(x => String(x.id) === raw) ||
+  state.clients.find(x => String(x.code) === raw) ||
+  state.clients.find(x => String(x.code) === codeFromLabel);
     if(!c) return alert("Cliente no encontrado.");
     const phone = cleanWhatsappPhone(c.phone);
     if(!phone) return alert("Este cliente no tiene teléfono cargado.");
     const msg = encodeURIComponent(closeRouteMessage(c.id));
-    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+    window.open("https://wa.me/" + phone + "?text=" + msg, "_blank");
     markCloseRouteReminderSent(c.id);
   }
 
@@ -710,7 +728,7 @@ ${link}
 Cualquier duda nos escribís por acá.`
     );
 
-    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+    window.open("https://wa.me/" + phone + "?text=" + msg, "_blank");
   }
 
   function renderClients(){
@@ -1234,4 +1252,14 @@ function applyRolePermissions(){
   (async function startApp(){
     if(!(await bootPublic())){ currentUser ? (showApp(),initAdmin()) : showLogin(); }
   })();
+});
+
+document.addEventListener("DOMContentLoaded", ()=>{
+  const btn = document.getElementById("closeRouteViewBtn");
+  if(btn){
+    btn.onclick = ()=>{
+      const box = document.getElementById("closeRouteSummary");
+      if(box) box.innerHTML = "";
+    };
+  }
 });
