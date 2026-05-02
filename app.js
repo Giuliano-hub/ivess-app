@@ -1390,3 +1390,36 @@ document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("simpleCloseRouteBtn");
   if(btn) btn.onclick = simpleClosePrepare;
 });
+
+
+function openCloseRouteForced(){
+  // Desactiva nav activo
+  document.querySelectorAll(".nav").forEach(b=>b.classList.remove("active"));
+
+  const btn = document.getElementById("openCloseRouteMenuBtn");
+  if(btn) btn.classList.add("active");
+
+  // Oculta todas las vistas conocidas
+  document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));
+
+  // Muestra la pantalla de cierre
+  const screen = document.getElementById("closeRouteScreen");
+  if(screen) screen.classList.remove("hidden");
+
+  // Títulos
+  if(document.getElementById("viewTitle")) document.getElementById("viewTitle").textContent = "Cerrar hoja de ruta";
+  if(document.getElementById("viewSubtitle")) document.getElementById("viewSubtitle").textContent = "Recordatorios y cierre del reparto.";
+
+  if(typeof simpleCloseRender === "function") simpleCloseRender();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const menuBtn = document.getElementById("openCloseRouteMenuBtn");
+  if(menuBtn) menuBtn.onclick = openCloseRouteForced;
+
+  const ownDay = document.getElementById("closeRouteOwnDay");
+  if(ownDay) ownDay.onchange = () => { if(typeof simpleCloseRender === "function") simpleCloseRender(); };
+
+  const prep = document.getElementById("simpleCloseRouteBtn");
+  if(prep) prep.onclick = () => { if(typeof simpleClosePrepare === "function") simpleClosePrepare(); };
+});

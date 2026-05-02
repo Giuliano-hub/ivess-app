@@ -171,3 +171,8 @@ button[data-view="moves"],
 #cerrarRuta .simple-close-card{display:block!important}
 #cerrarRuta{display:block}
 #cerrarRuta.hidden{display:none!important}
+
+/* V11.4 cierre forzado */
+#closeRouteScreen.hidden{display:none!important}
+#closeRouteScreen:not(.hidden){display:block!important}
+#closeRouteScreen .simple-close-card{display:block!important}
