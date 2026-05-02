@@ -720,8 +720,7 @@ function refreshInsertAfterOptions(){
 
 async function addClient(){
     if(!isAdmin()) return alert("Solo Giuli/admin puede agregar clientes.");
-    
-    
+
     if(editingClientId){
       const c = state.clients.find(x=>String(x.id)===String(editingClientId));
       if(!c) return alert("No encontré el cliente a editar");
@@ -739,6 +738,7 @@ async function addClient(){
 
       const after = el("clientInsertAfter") ? el("clientInsertAfter").value : "";
       let newOrder = Number(c.order || 1);
+
       if(after){
         const prev = client(after);
         newOrder = prev ? Number(prev.order || 0) + 1 : 1;
@@ -764,13 +764,48 @@ async function addClient(){
       return;
     }
 
-const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrder=1;
-    if(after){ const prev=client(after); newOrder=prev?Number(prev.order)+1:1; }
-    state.clients.filter(c=>c.day===day && Number(c.order)>=newOrder).forEach(c=>c.order=Number(c.order)+1);
-    const newClient = {id:"c"+Date.now(),code:generateNextCode(),name:el("clientName").value||"Cliente",address:el("clientAddress").value,phone:el("clientPhone").value,day,order:newOrder,priceList:el("clientPriceList").value,cooler:el("clientCooler").value,coolerDesc:el("clientCoolerDesc").value,note:el("clientNote").value};
+    const day = el("clientDay").value || "Lunes";
+    const after = el("clientInsertAfter") ? el("clientInsertAfter").value : "";
+    let newOrder = 1;
+
+    if(after){
+      const prev = client(after);
+      if(prev && prev.day === day){
+        newOrder = Number(prev.order || 0) + 1;
+      }
+    }
+
+    state.clients
+      .filter(c=>c.day===day && Number(c.order || 0) >= newOrder)
+      .forEach(c=>c.order = Number(c.order || 0) + 1);
+
+    const newClient = {
+      id:"c"+Date.now(),
+      code:generateNextCode(),
+      name:el("clientName").value || "Cliente",
+      address:el("clientAddress").value,
+      phone:el("clientPhone").value,
+      day,
+      order:newOrder,
+      priceList:el("clientPriceList").value,
+      cooler:el("clientCooler").value,
+      coolerDesc:el("clientCoolerDesc").value,
+      note:el("clientNote").value
+    };
+
     const cloudClient = await cloudInsertClient(newClient);
     state.clients.push(cloudClient || newClient);
-    recalcOrders(day); save(); ["clientName","clientAddress","clientPhone","clientOrder","clientCoolerDesc","clientNote"].forEach(id=>el(id).value=""); el("clientCooler").value="no"; fillClients(); renderAll(); alert("Cliente agregado");
+
+    recalcOrders(day);
+    save();
+
+    ["clientName","clientAddress","clientPhone","clientOrder","clientCoolerDesc","clientNote"].forEach(id=>{ if(el(id)) el(id).value=""; });
+    if(el("clientCooler")) el("clientCooler").value="no";
+    if(el("clientInsertAfter")) el("clientInsertAfter").value="";
+
+    fillClients();
+    renderAll();
+    alert("Cliente agregado");
   }
   async function deleteClient(id){ const c=client(id); if(!isAdmin()) return; if(confirm(`¿Eliminar a ${c?.name}? También se borrarán sus movimientos.`)){ await cloudDeleteClient(id); state.clients=state.clients.filter(c=>c.id!==id); state.moves=state.moves.filter(m=>m.clientId!==id); save(); fillClients(); renderAll(); } }
   async function deleteMove(id){ const m=state.moves.find(x=>x.id==id); if(!m || !canDeleteMove(m)) return alert("No tenés permiso para borrar este movimiento."); const c=client(m.clientId)||{}; if(confirm(`¿Eliminar ${label(m.type)} de ${c.name} por ${money(m.amount)}?`)){ await cloudDeleteMove(id); state.moves=state.moves.filter(x=>x.id!=id); save(); renderAll(); } }
