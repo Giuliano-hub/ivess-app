@@ -601,8 +601,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const link = clientLink(c.id);
 
     const msg = encodeURIComponent(
-`Hola ${c.name}! 💧
-Te compartimos tu link para que puedas ver tu cuenta, saldo y movimientos 👇
+`Hola ${c.name}! 
+Te compartimos tu link para que puedas ver tu cuenta, saldo y movimientos 
 
 ${link}
 
