@@ -1306,7 +1306,13 @@ function applyRolePermissions(){
     const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
-  function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); simpleCloseRender(); applyRolePermissions(); }
+  
+  function bindSimpleCloseButton(){
+    const btn = document.getElementById("simpleCloseRouteBtn");
+    if(btn) btn.onclick = simpleClosePrepare;
+  }
+
+function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); simpleCloseRender(); bindSimpleCloseButton(); applyRolePermissions(); }
   async function initAdmin(){ await cloudLoadData(); fillBase(); renderAll(); updatePriceHint(); }
 
   async function bootPublic(){
@@ -1352,7 +1358,12 @@ document.addEventListener("DOMContentLoaded", ()=>{
 });
 
 
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("simpleCloseRouteBtn");
-  if(btn) btn.onclick = simpleClosePrepare;
+
+
+document.addEventListener("click", (ev) => {
+  const btn = ev.target && ev.target.closest ? ev.target.closest("#simpleCloseRouteBtn") : null;
+  if(btn){
+    ev.preventDefault();
+    simpleClosePrepare();
+  }
 });
