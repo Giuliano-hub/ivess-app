@@ -5,7 +5,7 @@ const supabaseDb = window.supabase ? window.supabase.createClient(SUPABASE_URL, 
 
 document.addEventListener("DOMContentLoaded", function () {
   const days = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
-  const products = ["20L","20L Bajo Sodio","12L","12L Bajo Sodio","Soda vidrio","Soda plástico","Pago / Saldo","Otro"];
+  const products = ["20L","20L Bajo Sodio","12L","12L Bajo Sodio","Soda vidrio","Soda plástico","Saborizada","PA","Soda descartable","Soda de medio","Pago / Saldo","Otro"];
   const users = {
     giuli:{pass:"ivess2026",role:"admin",name:"Giuli"},
     "160":{pass:"160",role:"repartidor",name:"Iván"}
@@ -19,9 +19,9 @@ document.addEventListener("DOMContentLoaded", function () {
   function uid(){ return "m" + Date.now() + Math.random().toString(16).slice(2); }
 
   const defaultPriceLists = {
-    "1":{name:"Lista 1 - IVESS",prices:{"20L":9000,"20L Bajo Sodio":10000,"12L":6200,"12L Bajo Sodio":7500,"Soda vidrio":1200,"Soda plástico":1400,"Pago / Saldo":0,"Otro":0}},
-    "2":{name:"Lista 2 - IVESS frío-calor",prices:{"20L":10000,"20L Bajo Sodio":11000,"12L":6500,"12L Bajo Sodio":7800,"Soda vidrio":1200,"Soda plástico":1400,"Pago / Saldo":0,"Otro":0}},
-    "3":{name:"Lista 3 - Pirozi",prices:{"20L":8000,"20L Bajo Sodio":9000,"12L":6200,"12L Bajo Sodio":6800,"Soda vidrio":1200,"Soda plástico":1400,"Pago / Saldo":0,"Otro":0}}
+    "1":{name:"Lista 1 - IVESS",prices:{"20L":9000,"20L Bajo Sodio":10000,"12L":6200,"12L Bajo Sodio":7500,"Soda vidrio":1200,"Soda plástico":1400,"Saborizada":0,"PA":0,"Soda descartable":0,"Soda de medio":0,"Pago / Saldo":0,"Otro":0}},
+    "2":{name:"Lista 2 - IVESS frío-calor",prices:{"20L":10000,"20L Bajo Sodio":11000,"12L":6500,"12L Bajo Sodio":7800,"Soda vidrio":1200,"Soda plástico":1400,"Saborizada":0,"PA":0,"Soda descartable":0,"Soda de medio":0,"Pago / Saldo":0,"Otro":0}},
+    "3":{name:"Lista 3 - Pirozi",prices:{"20L":8000,"20L Bajo Sodio":9000,"12L":6200,"12L Bajo Sodio":6800,"Soda vidrio":1200,"Soda plástico":1400,"Saborizada":0,"PA":0,"Soda descartable":0,"Soda de medio":0,"Pago / Saldo":0,"Otro":0}}
   };
 
   const demo = {
@@ -470,7 +470,7 @@ document.addEventListener("DOMContentLoaded", function () {
       el("routeModeClient").innerHTML = "<div class='muted'>No hay clientes para esta hoja de ruta.</div>";
       return;
     }
-    const quick = ["20L","20L Bajo Sodio","12L","12L Bajo Sodio","Soda vidrio","Soda plástico"];
+    const quick = ["20L","20L Bajo Sodio","12L","12L Bajo Sodio","Soda vidrio","Soda plástico","Saborizada","PA","Soda descartable","Soda de medio"];
     const cartHtml = routeCart.length ? routeCart.map((i,idx)=>`
       <div class="cart-item">
         <b>${i.product}</b>
@@ -792,7 +792,7 @@ const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrd
     document.querySelectorAll(".nav,.view").forEach(x=>x.classList.remove("active"));
     document.querySelector(`.nav[data-view="${view}"]`)?.classList.add("active");
     el(view).classList.add("active");
-    const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],cargar:["Cargar movimiento","Venta, fiado, pago o no compra."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
+    const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
   function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
