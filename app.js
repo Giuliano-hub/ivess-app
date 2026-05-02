@@ -1,4 +1,4 @@
-console.log("IVESS V8.1 recuerda cliente actual cargado");
+console.log("IVESS V9 importador masivo cargado");
 const SUPABASE_URL = "https://czvlyqauxidoiykagsza.supabase.co";
 const SUPABASE_KEY = "sb_publishable_X1FnC6SX7jG5fZU2EVDDOQ_Uc_GyKp0";
 const supabaseDb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   let state = JSON.parse(localStorage.getItem("ivessStableV5") || "null") || demo;
   state.priceLists = state.priceLists || defaultPriceLists;
-  state.clients = (state.clients||[]).map(c=>({code:"",priceList:"1",cooler:"no",coolerDesc:"",note:"",...c}));
+  state.clients = (state.clients||[]).map(c=>({code:"",city:"",priceList:"1",cooler:"no",coolerDesc:"",note:"",...c}));
   state.moves = (state.moves||[]).map(m=>({qty:1,pay:"Efectivo",note:"",...m}));
   const SESSION_MS = 2 * 60 * 60 * 1000; // 2 horas de inactividad
   function loadSession(){
@@ -78,6 +78,7 @@ document.addEventListener("DOMContentLoaded", function () {
       code: row.code || "",
       name: row.name || "Cliente",
       address: row.address || "",
+      city: row.city || row.ciudad || "",
       phone: row.phone || "",
       day: row.day || "Lunes",
       order: Number(row.order || 1),
@@ -103,7 +104,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function clientToDbRow(c){
     return {
-      code:c.code, name:c.name, address:c.address, phone:c.phone, day:c.day,
+      code:c.code, name:c.name, address:c.address, city:c.city || "", phone:c.phone, day:c.day,
       order:Number(c.order||1), pricelist:c.priceList || "1", cooler:c.cooler || "no"
     };
   }
@@ -554,21 +555,22 @@ document.addEventListener("DOMContentLoaded", function () {
   function renderRouteSheet(){
     const d=el("sheetDay").value||"Lunes", q=(el("sheetSearch").value||"").toLowerCase();
     const items=state.clients.filter(c=>c.day===d && (c.code+c.name+c.address+c.phone).toLowerCase().includes(q)).sort((a,b)=>Number(a.order)-Number(b.order));
-    el("routeSheet").innerHTML=items.map(c=>`<div class="sheet-card"><span class="code-badge">${c.code}</span>${c.cooler==="si"?`<span class="cooler-badge">Frío/calor</span>`:""}<h3>#${c.order} · ${c.name}</h3><div class="sheet-meta">📍 ${c.address||"-"}<br>☎ ${c.phone||"-"}<br>💰 ${balanceLabel(c.id)}${c.note?"<br>📝 "+c.note:""}${c.cooler==="si"&&c.coolerDesc?"<br>❄️ "+c.coolerDesc:""}</div><div class="sheet-actions"><button data-prefill="${c.id}|venta">Venta</button><button data-prefill="${c.id}|fiado">Fiado</button><button data-prefill="${c.id}|pago">Pago</button></div></div>`).join("")||"<div class='card'>Sin clientes.</div>";
+    el("routeSheet").innerHTML=items.map(c=>`<div class="sheet-card"><span class="code-badge">${c.code}</span>${c.cooler==="si"?`<span class="cooler-badge">Frío/calor</span>`:""}<h3>#${c.order} · ${c.name}</h3><div class="sheet-meta">📍 ${c.address||"-"}${c.city?" - "+c.city:""}<br>☎ ${c.phone||"-"}<br>💰 ${balanceLabel(c.id)}${c.note?"<br>📝 "+c.note:""}${c.cooler==="si"&&c.coolerDesc?"<br>❄️ "+c.coolerDesc:""}</div><div class="sheet-actions"><button data-prefill="${c.id}|venta">Venta</button><button data-prefill="${c.id}|fiado">Fiado</button><button data-prefill="${c.id}|pago">Pago</button></div></div>`).join("")||"<div class='card'>Sin clientes.</div>";
     bindPrefill();
   }
   function renderClients(){
     const q=(el("clientSearch").value||"").toLowerCase(), mode=el("clientSort").value;
     const rows=sortClients(
-      state.clients.filter(c=>(c.code+c.name+c.address+c.phone+c.day).toLowerCase().includes(q)),
+      state.clients.filter(c=>(c.code+c.name+c.address+(c.city||"")+c.phone+c.day).toLowerCase().includes(q)),
       mode
     );
 
     el("clientTable").innerHTML=table(
-      ["Código","Día","Cliente","Lista","Frío/calor","Teléfono","Cuenta","Link","Acción"],
+      ["Código","Día","Ciudad","Cliente","Lista","Frío/calor","Teléfono","Cuenta","Link","Acción"],
       rows.map(c=>[
         c.code,
         c.day,
+        c.city || "",
         `<b>${c.name}</b><br><small>${c.address}</small>`,
         priceListName(c.priceList),
         `${c.cooler==="si"?"Sí":"No"}${c.coolerDesc?`<br><small>${c.coolerDesc}</small>`:""}`,
@@ -631,7 +633,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function portalHTML(id, publicMode){
     const c = state.clients.find(x => String(x.id) === String(id) || String(x.code) === String(id)); if(!c) return "<div class='public-card'><h2>Cliente no encontrado</h2><p>Consultanos por WhatsApp.</p></div>";
     const d=debt(c.id), cr=credit(c.id), ms=state.moves.filter(m=>m.clientId===c.id).slice().reverse();
-    return `<div class="${publicMode?"public-card":""}"><div class="${publicMode?"public-top":"portal-banner"}"><div><span class="code-badge">${c.code}</span><h2>Hola, ${c.name}</h2><p class="muted">Este es el detalle actualizado de tu cuenta.</p>${cr>0?`<div class="public-debt credit">Saldo a favor: ${money(cr)}</div>`:`<div class="public-debt ${d>0?"debt":"ok"}">${d>0?"Debe: "+money(d):money(0)}</div>`}<p class="muted">Dirección: ${c.address}</p>${c.cooler==="si"?`<p class="muted">Equipo frío/calor: ${c.coolerDesc||"Sí"}</p>`:""}</div>${publicMode?"<div class='public-logo'>IV</div>":""}</div><div class="public-note">Si ya abonaste y todavía figura deuda, puede demorar hasta que el repartidor actualice el pago.</div><h3>Movimientos</h3>${ms.map(moveRow).join("")||"<p class='muted'>Sin movimientos.</p>"}</div>`;
+    return `<div class="${publicMode?"public-card":""}"><div class="${publicMode?"public-top":"portal-banner"}"><div><span class="code-badge">${c.code}</span><h2>Hola, ${c.name}</h2><p class="muted">Este es el detalle actualizado de tu cuenta.</p>${cr>0?`<div class="public-debt credit">Saldo a favor: ${money(cr)}</div>`:`<div class="public-debt ${d>0?"debt":"ok"}">${d>0?"Debe: "+money(d):money(0)}</div>`}<p class="muted">Dirección: ${c.address}${c.city?" - "+c.city:""}</p>${c.cooler==="si"?`<p class="muted">Equipo frío/calor: ${c.coolerDesc||"Sí"}</p>`:""}</div>${publicMode?"<div class='public-logo'>IV</div>":""}</div><div class="public-note">Si ya abonaste y todavía figura deuda, puede demorar hasta que el repartidor actualice el pago.</div><h3>Movimientos</h3>${ms.map(moveRow).join("")||"<p class='muted'>Sin movimientos.</p>"}</div>`;
   }
 
   async function addMovement(){
@@ -681,6 +683,7 @@ function refreshInsertAfterOptions(){
 
     if(el("clientName")) el("clientName").value = c.name || "";
     if(el("clientAddress")) el("clientAddress").value = c.address || "";
+    if(el("clientCity")) el("clientCity").value = c.city || "";
     if(el("clientPhone")) el("clientPhone").value = c.phone || "";
     if(el("clientDay")) el("clientDay").value = c.day || "Lunes";
     if(el("clientPriceList")) el("clientPriceList").value = c.priceList || "1";
@@ -703,6 +706,7 @@ function refreshInsertAfterOptions(){
       code:c.code,
       name:c.name,
       address:c.address,
+      city:c.city || "",
       phone:c.phone,
       day:c.day,
       order:Number(c.order||1),
@@ -729,6 +733,7 @@ function refreshInsertAfterOptions(){
         order: Number(c.order || 1),
         name: c.name,
         address: c.address,
+        city: c.city || "",
         phone: c.phone,
         pricelist: c.priceList || "1",
         cooler: c.cooler || "no"
@@ -781,6 +786,7 @@ async function addClient(){
 
       c.name = el("clientName").value || "Cliente";
       c.address = el("clientAddress").value || "";
+      c.city = el("clientCity") ? el("clientCity").value || "" : "";
       c.phone = el("clientPhone").value || "";
       c.priceList = el("clientPriceList").value || "1";
       c.cooler = el("clientCooler").value || "no";
@@ -819,6 +825,7 @@ async function addClient(){
       code:generateNextCode(),
       name:el("clientName").value || "Cliente",
       address:el("clientAddress").value,
+      city:el("clientCity") ? el("clientCity").value : "",
       phone:el("clientPhone").value,
       day:selectedDay,
       order:newOrder,
@@ -836,7 +843,7 @@ async function addClient(){
 
     save();
 
-    ["clientName","clientAddress","clientPhone","clientOrder","clientCoolerDesc","clientNote"].forEach(id=>{ if(el(id)) el(id).value=""; });
+    ["clientName","clientAddress","clientCity","clientPhone","clientOrder","clientCoolerDesc","clientNote"].forEach(id=>{ if(el(id)) el(id).value=""; });
     if(el("clientCooler")) el("clientCooler").value="no";
     if(el("clientInsertAfter")) el("clientInsertAfter").value="";
 
@@ -853,9 +860,151 @@ async function addClient(){
   function clientLink(id){ const c=client(id), u=new URL(window.location.href); u.search=""; u.hash=""; u.searchParams.set("cliente",c?.code||id); return u.toString(); }
   async function copyText(t){ try{ await navigator.clipboard.writeText(t); alert("Link copiado"); } catch(e){ prompt("Copiá este link:",t); } }
 
-  function applyRolePermissions(){
+  
+  function parseCsvText(text){
+    const rows = [];
+    let row = [], cell = "", inQuotes = false;
+    for(let i=0;i<text.length;i++){
+      const ch = text[i], next = text[i+1];
+      if(ch === '"' && inQuotes && next === '"'){ cell += '"'; i++; continue; }
+      if(ch === '"'){ inQuotes = !inQuotes; continue; }
+      if(ch === "," && !inQuotes){ row.push(cell); cell = ""; continue; }
+      if((ch === "\n" || ch === "\r") && !inQuotes){
+        if(ch === "\r" && next === "\n") i++;
+        row.push(cell); cell = "";
+        if(row.some(v=>String(v).trim()!=="")) rows.push(row);
+        row = [];
+        continue;
+      }
+      cell += ch;
+    }
+    row.push(cell);
+    if(row.some(v=>String(v).trim()!=="")) rows.push(row);
+    if(!rows.length) return [];
+    const headers = rows.shift().map(h=>String(h||"").trim().toLowerCase().replace(/^\ufeff/,""));
+    return rows.map(r=>{
+      const obj = {};
+      headers.forEach((h,i)=>obj[h]=String(r[i]||"").trim());
+      return obj;
+    });
+  }
+
+  function normalizeImportDay(v){
+    const x = String(v||"").trim().toUpperCase();
+    const map = {LU:"Lunes",MA:"Martes",MI:"Miércoles",JU:"Jueves",VI:"Viernes",SA:"Sábado",DO:"Domingo"};
+    if(map[x]) return map[x];
+    const found = days.find(d=>d.toUpperCase()===x || d.toUpperCase().startsWith(x));
+    return found || "Lunes";
+  }
+
+  function importNumber(v){
+    const n = Number(String(v||"0").replace(/\./g,"").replace(",",".").replace(/[^\d.-]/g,""));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  async function importClientsCsv(){
+    if(!isAdmin()) return alert("Solo Giuli/admin puede importar clientes.");
+    const file = el("importCsvFile")?.files?.[0];
+    if(!file) return alert("Elegí primero el archivo CSV.");
+    if(!supabaseDb) return alert("No hay conexión con Supabase.");
+
+    const replace = el("replaceClientsImport") ? el("replaceClientsImport").checked : true;
+    const msg = replace ? "Esto va a BORRAR clientes y movimientos actuales y cargar el CSV. ¿Seguimos?" : "Esto va a AGREGAR clientes del CSV sin borrar los actuales. ¿Seguimos?";
+    if(!confirm(msg)) return;
+
+    const status = el("importStatus");
+    if(status) status.textContent = "Leyendo archivo...";
+
+    const rawRows = parseCsvText(await file.text());
+    if(!rawRows.length) return alert("El CSV está vacío o no se pudo leer.");
+
+    const perDay = {};
+    let maxCode = replace ? 0 : state.clients.reduce((n,c)=>Math.max(n,codeNumber(c.code)),0);
+
+    const newClients = rawRows.map((r,idx)=>{
+      const day = normalizeImportDay(r.day || r.frec || r.frecuencia);
+      perDay[day] = perDay[day] || 0;
+      perDay[day]++;
+      const code = r.code || r.codigo || ("C" + String(++maxCode).padStart(3,"0"));
+      const order = importNumber(r.order || r.orden) || perDay[day];
+      return {
+        id:"tmp"+idx+"_"+Date.now(),
+        code,
+        name:r.name || r.nombre || "Sin nombre",
+        address:r.address || r.direccion || "",
+        city:r.city || r.ciudad || "",
+        phone:r.phone || r.telefono || r["teléfono"] || "",
+        day,
+        order,
+        priceList:r.pricelist || r.lista || r.priceList || "1",
+        cooler:String(r.cooler || r.frio_calor || r["frío/calor"] || "no").toLowerCase().startsWith("s") ? "si" : "no",
+        coolerDesc:r.coolerdesc || "",
+        note:r.notes || r.nota || r.observaciones || "",
+        initialDebt: importNumber(r.initial_debt || r.fiado || r.deuda),
+        initialCredit: importNumber(r.initial_credit || r.saldo || r.credito)
+      };
+    });
+
+    if(status) status.textContent = "Preparando base...";
+
+    if(replace){
+      await supabaseDb.from("moves").delete().neq("id", -1);
+      await supabaseDb.from("clients").delete().neq("id", -1);
+      state.clients = [];
+      state.moves = [];
+    }
+
+    for(const d of days){
+      newClients.filter(c=>c.day===d).sort((a,b)=>Number(a.order||0)-Number(b.order||0)).forEach((c,i)=>c.order=i+1);
+    }
+
+    const inserted = [];
+    const chunkSize = 100;
+    for(let i=0;i<newClients.length;i+=chunkSize){
+      if(status) status.textContent = `Importando clientes ${Math.min(i+chunkSize,newClients.length)} / ${newClients.length}...`;
+      const {data, error} = await supabaseDb.from("clients").insert(newClients.slice(i,i+chunkSize).map(clientToDbRow)).select();
+      if(error){
+        console.error(error);
+        alert('No pude importar clientes. Si el error dice que falta "city", agregá una columna city tipo text en Supabase > clients.');
+        if(status) status.textContent = "Error importando clientes.";
+        return;
+      }
+      inserted.push(...(data||[]).map(dbClientRowToState));
+    }
+
+    const initialMoves = [];
+    inserted.forEach((c,idx)=>{
+      const original = newClients[idx];
+      if(original.initialDebt > 0){
+        initialMoves.push({client_id:Number(c.id),date:todayStr(),type:"fiado",product:"Saldo pendiente",qty:1,pay:"Importación",amount:original.initialDebt,salevalue:original.initialDebt,note:"Saldo inicial importado"});
+      }
+      if(original.initialCredit > 0){
+        initialMoves.push({client_id:Number(c.id),date:todayStr(),type:"pago",product:"Pago / Saldo",qty:1,pay:"Importación",amount:original.initialCredit,salevalue:0,note:"Saldo a favor inicial importado"});
+      }
+    });
+
+    for(let i=0;i<initialMoves.length;i+=chunkSize){
+      if(status) status.textContent = `Importando saldos ${Math.min(i+chunkSize,initialMoves.length)} / ${initialMoves.length}...`;
+      const {error} = await supabaseDb.from("moves").insert(initialMoves.slice(i,i+chunkSize));
+      if(error){
+        console.error(error);
+        alert("Clientes importados, pero hubo error cargando saldos iniciales.");
+        break;
+      }
+    }
+
+    await cloudLoadData();
+    fillBase();
+    renderAll();
+
+    if(status) status.textContent = `Listo: ${inserted.length} clientes importados.`;
+    alert(`Importación terminada: ${inserted.length} clientes.`);
+  }
+
+
+function applyRolePermissions(){
     const admin=isAdmin();
-    ["clientCodePreview","clientName","clientAddress","clientPhone","clientDay","clientInsertAfter","clientOrder","clientPriceList","clientCooler","clientCoolerDesc","clientNote"].forEach(id=>{ if(el(id)) el(id).disabled=!admin; });
+    ["clientCodePreview","clientName","clientAddress","clientCity","clientPhone","clientDay","clientInsertAfter","clientOrder","clientPriceList","clientCooler","clientCoolerDesc","clientNote"].forEach(id=>{ if(el(id)) el(id).disabled=!admin; });
     el("saveClientBtn").disabled=!admin; el("saveClientBtn").textContent=admin?"Agregar cliente":"Solo Giuli puede agregar clientes"; el("clientAdminOnlyNote").classList.toggle("hidden",admin);
     document.querySelectorAll(".admin-only").forEach(n=>n.classList.toggle("hidden",!admin));
   }
@@ -889,7 +1038,7 @@ async function addClient(){
   ["movClient","movProduct","movQty","movType"].forEach(id=>el(id).addEventListener("input",updatePriceHint));
   el("loginBtn").onclick=login; el("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")login();}); el("logoutBtn").onclick=logout;
   el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; if(el("clientDay")) el("clientDay").addEventListener("change", fillInsertAfter); el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value));
-  el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();};
+  el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();}; if(el("importCsvBtn")) el("importCsvBtn").onclick=importClientsCsv;
   el("startRouteModeBtn").onclick=()=>{ routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); };
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };
 

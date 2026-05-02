@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="version-badge-v8">V8.9 - Editar reordena OK</div>
+  <div class="version-badge-v8">V9 - Importador masivo</div>
   <div id="loginScreen" class="login-screen hidden">
     <div class="login-card">
       <div class="login-logo">IV</div>
@@ -145,6 +145,7 @@
             <label>Código automático<input id="clientCodePreview" disabled></label>
             <label>Nombre<input id="clientName" placeholder="Nombre o comercio"></label>
             <label>Dirección<input id="clientAddress" placeholder="Dirección"></label>
+            <label>Ciudad<input id="clientCity" placeholder="Ciudad"></label>
             <label>Teléfono<input id="clientPhone" placeholder="Teléfono"></label>
             <label>Día<select id="clientDay"></select></label>
             <label>Insertar después de<select id="clientInsertAfter"></select></label>
@@ -158,6 +159,18 @@
           </div>
           <button class="primary" id="saveClientBtn">Agregar cliente</button>
         </div>
+
+        <div class="card form-card admin-only" id="importClientsCard">
+          <h3>Importar clientes desde CSV</h3>
+          <p class="muted">Usá el archivo preparado desde Excel. Recomendado: dejar marcado “Reemplazar clientes actuales” para cargar la base real limpia.</p>
+          <div class="form-grid">
+            <label class="wide">Archivo CSV<input type="file" id="importCsvFile" accept=".csv,text/csv"></label>
+            <label class="wide"><input type="checkbox" id="replaceClientsImport" checked> Reemplazar clientes y movimientos actuales</label>
+          </div>
+          <button class="primary" id="importCsvBtn">Importar clientes CSV</button>
+          <div id="importStatus" class="price-hint"></div>
+        </div>
+
         <div class="toolbar">
           <input id="clientSearch" placeholder="Buscar cliente">
           <select id="clientSort">

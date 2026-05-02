@@ -98,3 +98,7 @@ button[data-view="moves"],
 .nav[data-view="moves"]{
   display:none!important;
 }
+
+/* V9 importador */
+#importClientsCard input[type="file"]{padding:10px;background:#fff}
+#importStatus{margin-top:10px;font-weight:800}
