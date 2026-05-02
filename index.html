@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="version-badge-v8">V10.6 - Rescate estable</div>
+  <div class="version-badge-v8">V10.7 - Cerrar ruta pestaña</div>
   <div id="loginScreen" class="login-screen hidden">
     <div class="login-card">
       <div class="login-logo">IV</div>
@@ -34,6 +34,7 @@
       <nav>
         <button class="nav active" data-view="dashboard">Panel general</button>
         <button class="nav" data-view="ruta">Ruta del día</button>
+          <button class="nav" data-view="cerrarRuta">Cerrar hoja de ruta</button>
         <button class="nav" data-view="hoja">Hoja de ruta</button>
         <button class="nav" data-view="clientes">Clientes</button>
         <button class="nav" data-view="fiados">Fiados</button>
@@ -242,6 +243,20 @@
         </div>
         <div id="clientPortal" class="portal"></div>
       </section>
+    
+      <section id="view-cerrarRuta" class="view hidden">
+        <div class="card close-route-card">
+          <div class="card-head">
+            <div>
+              <h2>Cerrar hoja de ruta</h2>
+              <p class="muted">Prepará los recordatorios de deuda del día y dejá la ruta lista para arrancar desde el primer cliente.</p>
+            </div>
+            <button class="primary" id="closeRouteBtn2">Cerrar hoja de ruta</button>
+          </div>
+          <div id="closeRouteSummary2" class="close-route-summary"></div>
+        </div>
+      </section>
+
     </main>
   </div>
 

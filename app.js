@@ -1263,3 +1263,24 @@ document.addEventListener("DOMContentLoaded", ()=>{
     };
   }
 });
+
+
+function closeRouteDayFromTab(){
+  if(typeof closeRouteDay === "function"){
+    closeRouteDay();
+    const oldBox = document.getElementById("closeRouteSummary");
+    const newBox = document.getElementById("closeRouteSummary2");
+    if(oldBox && newBox) newBox.innerHTML = oldBox.innerHTML;
+  }
+  // reset seguro de avance de hoja de ruta
+  if(typeof routeModeIndex !== "undefined"){
+    routeModeIndex = 0;
+    routeCart = [];
+    routePayments = [{pay:"Efectivo", mode:"total", amount:0}];
+    if(typeof saveRouteModeState === "function") saveRouteModeState();
+  }
+}
+document.addEventListener("DOMContentLoaded", ()=>{
+  const btn = document.getElementById("closeRouteBtn2");
+  if(btn) btn.onclick = closeRouteDayFromTab;
+});

@@ -154,3 +154,7 @@ button[data-view="moves"],
 @media(max-width:700px){
   .close-route-row{grid-template-columns:1fr;gap:5px}
 }
+
+/* V10.7: ocultar cierre viejo dentro de hoja de ruta */
+.close-route-card{display:none!important}
+#view-cerrarRuta .close-route-card{display:block!important}
