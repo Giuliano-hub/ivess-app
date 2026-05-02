@@ -583,7 +583,6 @@ document.addEventListener("DOMContentLoaded", function () {
     return `Hola ${c.name}! Te compartimos tu link para consultar tu cuenta de IVESS:\\n\\n${link}\\n\\n${saldo}\\n\\nCualquier duda nos escribís por este medio.`;
   }
 
-  
   function openWhatsappClient(clientId){
     let raw = String(clientId || "").trim();
     const codeFromLabel = raw.includes(" - ") ? raw.split(" - ")[0].trim() : raw;
@@ -601,25 +600,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const link = clientLink(c.id);
 
-    const msg1 = encodeURIComponent(`Hola ${c.name}! 👋 Te compartimos tu link para que puedas ver tu cuenta, saldo y movimientos de IVESS.
+    const msg = encodeURIComponent(
+`Hola ${c.name}! 💧
+Te compartimos tu link para que puedas ver tu cuenta, saldo y movimientos 👇
 
-Cualquier duda nos escribís por acá.`);
-    const msg2 = encodeURIComponent(link);
+${link}
 
-    const url = `https://wa.me/${phone}?text=${msg1}`;
+Cualquier duda nos escribís por acá.`
+    );
 
-    // abre primer mensaje
-    window.open(url, "_blank");
-
-    // pequeño delay para abrir segundo mensaje
-    setTimeout(()=>{
-      window.open(`https://wa.me/${phone}?text=${msg2}`, "_blank");
-    }, 800);
+    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
   }
 
-
-
-function renderClients(){
+  function renderClients(){
     const q=(el("clientSearch").value||"").toLowerCase(), mode=el("clientSort").value;
     const rows=sortClients(
       state.clients.filter(c=>(c.code+c.name+c.address+(c.city||"")+c.phone+c.day).toLowerCase().includes(q)),
