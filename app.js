@@ -558,7 +558,43 @@ document.addEventListener("DOMContentLoaded", function () {
     el("routeSheet").innerHTML=items.map(c=>`<div class="sheet-card"><span class="code-badge">${c.code}</span>${c.cooler==="si"?`<span class="cooler-badge">Frío/calor</span>`:""}<h3>#${c.order} · ${c.name}</h3><div class="sheet-meta">📍 ${c.address||"-"}${c.city?" - "+c.city:""}<br>☎ ${c.phone||"-"}<br>💰 ${balanceLabel(c.id)}${c.note?"<br>📝 "+c.note:""}${c.cooler==="si"&&c.coolerDesc?"<br>❄️ "+c.coolerDesc:""}</div><div class="sheet-actions"><button data-prefill="${c.id}|venta">Venta</button><button data-prefill="${c.id}|fiado">Fiado</button><button data-prefill="${c.id}|pago">Pago</button></div></div>`).join("")||"<div class='card'>Sin clientes.</div>";
     bindPrefill();
   }
-  function renderClients(){
+  
+  function cleanWhatsappPhone(phone){
+    let p = String(phone || "").replace(/\D/g, "");
+    if(!p) return "";
+    // Argentina: si viene como 11..., agregamos 54. Para WhatsApp suele funcionar 549 + móvil.
+    if(p.startsWith("0")) p = p.slice(1);
+    if(p.startsWith("15") && p.length >= 10) p = "11" + p.slice(2);
+    if(!p.startsWith("54")){
+      if(p.startsWith("11") || p.length === 10){
+        p = "549" + p;
+      } else {
+        p = "54" + p;
+      }
+    }
+    return p;
+  }
+
+  function whatsappClientMessage(clientId){
+    const c = client(clientId);
+    if(!c) return "";
+    const link = clientLink(c.id);
+    const saldo = debt(c.id) > 0 ? `Actualmente figura una deuda de ${money(debt(c.id))}.` : (credit(c.id) > 0 ? `Actualmente tenés saldo a favor de ${money(credit(c.id))}.` : "Actualmente tu cuenta figura en $0.");
+    return `Hola ${c.name}! Te compartimos tu link para consultar tu cuenta de IVESS:\\n\\n${link}\\n\\n${saldo}\\n\\nCualquier duda nos escribís por este medio.`;
+  }
+
+  function openWhatsappClient(clientId){
+    const c = client(clientId);
+    if(!c) return alert("Cliente no encontrado.");
+    const phone = cleanWhatsappPhone(c.phone);
+    if(!phone) return alert("Este cliente no tiene teléfono cargado.");
+    const msg = encodeURIComponent(whatsappClientMessage(clientId));
+    const url = `https://wa.me/${phone}?text=${msg}`;
+    window.open(url, "_blank");
+  }
+
+
+function renderClients(){
     const q=(el("clientSearch").value||"").toLowerCase(), mode=el("clientSort").value;
     const rows=sortClients(
       state.clients.filter(c=>(c.code+c.name+c.address+(c.city||"")+c.phone+c.day).toLowerCase().includes(q)),
@@ -576,7 +612,7 @@ document.addEventListener("DOMContentLoaded", function () {
         `${c.cooler==="si"?"Sí":"No"}${c.coolerDesc?`<br><small>${c.coolerDesc}</small>`:""}`,
         c.phone,
         balanceLabel(c.id),
-        `<button class="link-row" data-link="${c.id}">Copiar link</button>`,
+        `<button class="link-row" data-link="${c.id}">Copiar link</button><button class="wa-row" data-wa="${c.id}">WhatsApp</button>`,
         isAdmin()?`
           <button class="edit-row" data-edit="${c.id}">Editar</button>
           <button class="delete-row" data-delete="${c.id}">Eliminar</button>
@@ -586,6 +622,7 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 
     document.querySelectorAll("[data-link]").forEach(b=>b.onclick=()=>copyText(clientLink(b.dataset.link)));
+    document.querySelectorAll("[data-wa]").forEach(b=>b.onclick=()=>openWhatsappClient(b.dataset.wa));
     document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteClient(b.dataset.delete));
     document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClient(b.dataset.edit));
     fillInsertAfter();
@@ -1037,7 +1074,7 @@ function applyRolePermissions(){
   ["clientDay","clientInsertAfter"].forEach(id=>el(id).addEventListener("change",()=>{fillInsertAfter();renderAll();}));
   ["movClient","movProduct","movQty","movType"].forEach(id=>el(id).addEventListener("input",updatePriceHint));
   el("loginBtn").onclick=login; el("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")login();}); el("logoutBtn").onclick=logout;
-  el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; if(el("clientDay")) el("clientDay").addEventListener("change", fillInsertAfter); el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value));
+  el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; if(el("clientDay")) el("clientDay").addEventListener("change", fillInsertAfter); el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value)); if(el("sendPortalWhatsappBtn")) el("sendPortalWhatsappBtn").onclick=()=>openWhatsappClient(el("portalClient").value);
   el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();}; if(el("importCsvBtn")) el("importCsvBtn").onclick=importClientsCsv;
   el("startRouteModeBtn").onclick=()=>{ routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); };
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };

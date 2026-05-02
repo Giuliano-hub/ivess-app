@@ -102,3 +102,14 @@ button[data-view="moves"],
 /* V9 importador */
 #importClientsCard input[type="file"]{padding:10px;background:#fff}
 #importStatus{margin-top:10px;font-weight:800}
+
+.wa-row{
+  background:#e8fff1!important;
+  color:#0b7a3b!important;
+  border:1px solid #8ee0af!important;
+  border-radius:10px!important;
+  padding:8px 10px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+  margin-left:6px!important;
+}
