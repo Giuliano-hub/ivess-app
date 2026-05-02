@@ -583,7 +583,108 @@ document.addEventListener("DOMContentLoaded", function () {
     return `Hola ${c.name}! Te compartimos tu link para consultar tu cuenta de IVESS:\\n\\n${link}\\n\\n${saldo}\\n\\nCualquier duda nos escribís por este medio.`;
   }
 
-  function openWhatsappClient(clientId){
+  
+  function closeRouteStore(){
+    try{ return JSON.parse(localStorage.getItem("ivessCloseRouteReminders") || "{}"); }
+    catch(e){ return {}; }
+  }
+
+  function saveCloseRouteStore(store){
+    localStorage.setItem("ivessCloseRouteReminders", JSON.stringify(store || {}));
+  }
+
+  function todayKey(){
+    return new Date().toISOString().slice(0,10);
+  }
+
+  function getCloseRouteDay(){
+    if(el("sheetDay")) return el("sheetDay").value || "Lunes";
+    if(el("routeDay")) return el("routeDay").value || "Lunes";
+    return "Lunes";
+  }
+
+  function closeRouteMessage(clientId){
+    const c = client(clientId);
+    if(!c) return "";
+    const link = clientLink(c.id);
+    return `Hola ${c.name}, te compartimos tu link para que puedas ver tu cuenta y saldo actualizado en cualquier momento:
+
+${link}
+
+Actualmente figura un saldo pendiente. Este mensaje forma parte de nuestros recordatorios automáticos para mantener la cuenta al día.`;
+  }
+
+  function markCloseRouteReminderSent(clientId){
+    const store = closeRouteStore();
+    store[String(clientId)] = todayKey();
+    saveCloseRouteStore(store);
+    renderCloseRouteSummary();
+  }
+
+  function openCloseRouteWhatsapp(clientId){
+    const c = client(clientId);
+    if(!c) return alert("Cliente no encontrado.");
+    const phone = cleanWhatsappPhone(c.phone);
+    if(!phone) return alert("Este cliente no tiene teléfono cargado.");
+    const msg = encodeURIComponent(closeRouteMessage(c.id));
+    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+    markCloseRouteReminderSent(c.id);
+  }
+
+  function closeRouteDebtors(){
+    const d = getCloseRouteDay();
+    const store = closeRouteStore();
+    return state.clients
+      .filter(c=>c.day===d)
+      .map(c=>({...c, currentDebt: debt(c.id), sentToday: store[String(c.id)] === todayKey()}))
+      .filter(c=>c.currentDebt > 0)
+      .sort((a,b)=>b.currentDebt-a.currentDebt);
+  }
+
+  function renderCloseRouteSummary(){
+    const box = el("closeRouteSummary");
+    if(!box) return;
+    const d = getCloseRouteDay();
+    const list = closeRouteDebtors();
+
+    if(!list.length){
+      box.innerHTML = `<p class="muted">No hay clientes de ${d} con saldo pendiente.</p>`;
+      return;
+    }
+
+    const pending = list.filter(c=>!c.sentToday);
+    const sent = list.filter(c=>c.sentToday);
+
+    box.innerHTML = `
+      <p class="muted"><b>${list.length}</b> clientes de ${d} con saldo pendiente. Pendientes de enviar hoy: <b>${pending.length}</b>.</p>
+      ${list.map(c=>`
+        <div class="close-route-row">
+          <div>
+            <b>${c.code} · ${c.name}</b><br>
+            <small>${c.address || ""}${c.city ? " - " + c.city : ""}${c.sentToday ? " · Enviado hoy" : ""}</small>
+          </div>
+          <div class="close-route-debt">${money(c.currentDebt)}</div>
+          <div>
+            <button class="close-route-wa" data-close-wa="${c.id}">WhatsApp</button>
+            <button class="close-route-sent" data-close-sent="${c.id}">Marcar enviado</button>
+          </div>
+        </div>
+      `).join("")}
+    `;
+
+    document.querySelectorAll("[data-close-wa]").forEach(b=>b.onclick=()=>openCloseRouteWhatsapp(b.dataset.closeWa));
+    document.querySelectorAll("[data-close-sent]").forEach(b=>b.onclick=()=>markCloseRouteReminderSent(b.dataset.closeSent));
+  }
+
+  function closeRouteDay(){
+    renderCloseRouteSummary();
+    const list = closeRouteDebtors().filter(c=>!c.sentToday);
+    if(!list.length) return alert("No hay recordatorios pendientes para este día.");
+    alert(`Se preparó la lista de ${list.length} cliente/s con saldo pendiente. Usá el botón WhatsApp de cada uno para enviar el recordatorio.`);
+  }
+
+
+function openWhatsappClient(clientId){
     let raw = String(clientId || "").trim();
     const codeFromLabel = raw.includes(" - ") ? raw.split(" - ")[0].trim() : raw;
 
@@ -1117,7 +1218,7 @@ function applyRolePermissions(){
 
   document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>openView(b.dataset.view));
   ["routeDay","routeSort","routeSearch","clientSearch","clientSort","salesDate","portalClient"].forEach(id=>el(id).addEventListener("input",renderAll));
-  ["sheetDay","sheetSearch"].forEach(id=>el(id).addEventListener("input",()=>{ routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); }));
+  ["sheetDay","sheetSearch"].forEach(id=>el(id).addEventListener("input",()=>{ renderCloseRouteSummary(); routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); }));
   ["clientDay","clientInsertAfter"].forEach(id=>el(id).addEventListener("change",()=>{fillInsertAfter();renderAll();}));
   ["movClient","movProduct","movQty","movType"].forEach(id=>el(id).addEventListener("input",updatePriceHint));
   el("loginBtn").onclick=login; el("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")login();}); el("logoutBtn").onclick=logout;
@@ -1125,7 +1226,7 @@ function applyRolePermissions(){
       const val = el("portalClient").value;
       openWhatsappClient(val);
     };
-  el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();}; if(el("importCsvBtn")) el("importCsvBtn").onclick=importClientsCsv;
+  el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();}; if(el("importCsvBtn")) el("importCsvBtn").onclick=importClientsCsv; if(el("closeRouteBtn")) el("closeRouteBtn").onclick=closeRouteDay;
   el("startRouteModeBtn").onclick=()=>{ routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); };
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };
 
