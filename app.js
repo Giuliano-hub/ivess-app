@@ -545,13 +545,34 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function renderClients(){
     const q=(el("clientSearch").value||"").toLowerCase(), mode=el("clientSort").value;
-    const rows=sortClients(state.clients.filter(c=>(c.code+c.name+c.address+c.phone+c.day).toLowerCase().includes(q)),mode);
-    el("clientTable").innerHTML=table(["Código","Día","Orden","Cliente","Lista","Frío/calor","Teléfono","Cuenta","Link","Acción"],rows.map(c=>[c.code,c.day,c.order,`<b>${c.name}</b><br><small>${c.address}</small>`,priceListName(c.priceList),`${c.cooler==="si"?"Sí":"No"}${c.coolerDesc?`<br><small>${c.coolerDesc}</small>`:""}`,c.phone,balanceLabel(c.id),`<button class="link-row" data-link="${c.id}">Copiar link</button>`,isAdmin()?`<button class="edit-row" data-edit="${c.id}">Editar</button>
-  <button class="delete-row" data-delete="${c.id}">Eliminar</button>
-`:""]),"Sin clientes.");
+    const rows=sortClients(
+      state.clients.filter(c=>(c.code+c.name+c.address+c.phone+c.day).toLowerCase().includes(q)),
+      mode
+    );
+
+    el("clientTable").innerHTML=table(
+      ["Código","Día","Orden","Cliente","Lista","Frío/calor","Teléfono","Cuenta","Link","Acción"],
+      rows.map(c=>[
+        c.code,
+        c.day,
+        c.order,
+        `<b>${c.name}</b><br><small>${c.address}</small>`,
+        priceListName(c.priceList),
+        `${c.cooler==="si"?"Sí":"No"}${c.coolerDesc?`<br><small>${c.coolerDesc}</small>`:""}`,
+        c.phone,
+        balanceLabel(c.id),
+        `<button class="link-row" data-link="${c.id}">Copiar link</button>`,
+        isAdmin()?`
+          <button class="edit-row" data-edit="${c.id}">Editar</button>
+          <button class="delete-row" data-delete="${c.id}">Eliminar</button>
+        `:""
+      ]),
+      "Sin clientes."
+    );
+
     document.querySelectorAll("[data-link]").forEach(b=>b.onclick=()=>copyText(clientLink(b.dataset.link)));
     document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteClient(b.dataset.delete));
-document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClient(b.dataset.edit));
+    document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClient(b.dataset.edit));
   }
   function renderDebts(){
     const totalDebt=state.clients.reduce((s,c)=>s+debt(c.id),0), totalCredit=state.clients.reduce((s,c)=>s+credit(c.id),0);
@@ -622,10 +643,7 @@ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClien
     state.moves.push(cloudMove || newMove);
     save(); el("movAmount").value=""; el("movNote").value=""; el("movQty").value=1; renderAll(); updatePriceHint(); alert("Movimiento guardado");
   }
-  
-  let editingClientId = null;
-
-  function refreshInsertAfterOptions(){
+function refreshInsertAfterOptions(){
     const dayEl = el("clientDay");
     const afterEl = el("clientInsertAfter");
     if(!dayEl || !afterEl) return;
@@ -638,118 +656,100 @@ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClien
     if([...afterEl.options].some(o=>o.value===current)) afterEl.value = current;
   }
 
-function startEditClient(id){
-  const c = state.clients.find(x=>String(x.id)===String(id));
-  if(!c) return alert("Cliente no encontrado");
+  
+  let editingClientId = null;
 
-  // Cargar datos en el formulario
-  el("clientCode").value = c.code;
-  el("clientName").value = c.name;
-  el("clientAddress").value = c.address;
-  el("clientPhone").value = c.phone;
-  el("clientDay").value = c.day;
-  el("clientOrder").value = c.order;
-  el("clientPriceList").value = c.pricelist;
-  el("clientCooler").value = c.cooler;
-  el("clientNotes").value = c.notes || "";
+  function startEditClient(id){
+    const c = state.clients.find(x=>String(x.id)===String(id));
+    if(!c) return alert("Cliente no encontrado");
 
-  // Guardar ID en edición
-  window.editingClientId = c.id;
+    editingClientId = String(c.id);
 
-  openView("clientes");
-}
+    if(el("clientName")) el("clientName").value = c.name || "";
+    if(el("clientAddress")) el("clientAddress").value = c.address || "";
+    if(el("clientPhone")) el("clientPhone").value = c.phone || "";
+    if(el("clientDay")) el("clientDay").value = c.day || "Lunes";
+    if(el("clientPriceList")) el("clientPriceList").value = c.priceList || "1";
+    if(el("clientCooler")) el("clientCooler").value = c.cooler || "no";
+    if(el("clientCoolerDesc")) el("clientCoolerDesc").value = c.coolerDesc || "";
+    if(el("clientNote")) el("clientNote").value = c.note || "";
+
+    if(el("clientInsertAfter")){
+      fillInsertAfter();
+      el("clientInsertAfter").value = "";
+    }
+
+    if(el("saveClientBtn")) el("saveClientBtn").textContent = "Guardar cambios";
+    alert("Editando cliente: " + c.name);
+  }
 
   async function updateClientInCloud(c){
     if(typeof supabaseDb === "undefined" || !supabaseDb) return true;
     const payload = {
-      code:c.code, name:c.name, address:c.address, phone:c.phone, day:c.day,
-      order:Number(c.order||1), pricelist:c.priceList||"1", cooler:c.cooler||"no"
+      code:c.code,
+      name:c.name,
+      address:c.address,
+      phone:c.phone,
+      day:c.day,
+      order:Number(c.order||1),
+      pricelist:c.priceList || "1",
+      cooler:c.cooler || "no"
     };
     const { error } = await supabaseDb.from("clients").update(payload).eq("id", Number(c.id));
-    if(error){ console.error(error); alert("No pude actualizar el cliente en Supabase."); return false; }
+    if(error){
+      console.error(error);
+      alert("No pude actualizar el cliente en Supabase: " + error.message);
+      return false;
+    }
     return true;
   }
 
-  async function addClient(){
-
- 
-  if(window.editingClientId){
-    const id = window.editingClientId;
-
-   const c = state.clients.find(x=>String(x.id)===String(id));
-
-    c.code = el("clientCode").value;
-    c.name = el("clientName").value;
-    c.address = el("clientAddress").value;
-    c.phone = el("clientPhone").value;
-    c.day = el("clientDay").value;
-    c.order = Number(el("clientOrder").value);
-    c.pricelist = el("clientPriceList").value;
-    c.cooler = el("clientCooler").value;
-    c.notes = el("clientNotes").value;
-
-    await updateClientInCloud(c);
-
-    window.editingClientId = null;
-
-    renderAll();
-    return;
-  }
-
-
+async function addClient(){
     if(!isAdmin()) return alert("Solo Giuli/admin puede agregar clientes.");
-
-if(typeof editingClientId !== "undefined" && editingClientId){
-  const c = state.clients.find(x=>String(x.id)===String(editingClientId));
-  if(!c) return;
-  c.name = el("clientName").value;
-  c.address = el("clientAddress").value;
-  c.phone = el("clientPhone").value;
-  c.day = el("clientDay").value;
-
-  editingClientId = null;
-  el("addClientBtn").textContent = "Agregar cliente";
-  save(); fillClients(); renderAll();
-  alert("Cliente actualizado");
-  return;
-}
+    
     
     if(editingClientId){
       const c = state.clients.find(x=>String(x.id)===String(editingClientId));
-      if(!c) return;
+      if(!c) return alert("No encontré el cliente a editar");
+
       const oldDay = c.day;
-      c.name = el("clientName").value;
-      c.address = el("clientAddress").value;
-      c.phone = el("clientPhone").value;
-      c.day = el("clientDay").value;
-      c.priceList = el("clientPriceList").value;
-      c.cooler = el("clientCooler").value;
-      if(el("clientCoolerDesc")) c.coolerDesc = el("clientCoolerDesc").value;
-      if(el("clientNote")) c.note = el("clientNote").value;
 
-      const after = el("clientInsertAfter").value;
-      let newOrder = 1;
+      c.name = el("clientName").value || "Cliente";
+      c.address = el("clientAddress").value || "";
+      c.phone = el("clientPhone").value || "";
+      c.day = el("clientDay").value || "Lunes";
+      c.priceList = el("clientPriceList").value || "1";
+      c.cooler = el("clientCooler").value || "no";
+      c.coolerDesc = el("clientCoolerDesc").value || "";
+      c.note = el("clientNote").value || "";
+
+      const after = el("clientInsertAfter") ? el("clientInsertAfter").value : "";
+      let newOrder = Number(c.order || 1);
       if(after){
-        const prev = state.clients.find(x=>String(x.id)===String(after));
+        const prev = client(after);
         newOrder = prev ? Number(prev.order || 0) + 1 : 1;
+        state.clients
+          .filter(x=>x.day===c.day && String(x.id)!==String(c.id) && Number(x.order||0)>=newOrder)
+          .forEach(x=>x.order=Number(x.order||0)+1);
+        c.order = newOrder;
       }
-      state.clients
-        .filter(x=>x.day===c.day && String(x.id)!==String(c.id) && Number(x.order||0)>=newOrder)
-        .forEach(x=>x.order=Number(x.order||0)+1);
-      c.order = newOrder;
 
-      if(typeof recalcOrders === "function") recalcOrders(c.day);
-      if(oldDay !== c.day && typeof recalcOrders === "function") recalcOrders(oldDay);
+      recalcOrders(c.day);
+      if(oldDay !== c.day) recalcOrders(oldDay);
 
       const ok = await updateClientInCloud(c);
       if(!ok) return;
+
       editingClientId = null;
-      if(el("addClientBtn")) el("addClientBtn").textContent = "Agregar cliente";
-      if(el("editPill")) el("editPill").remove();
-      save(); fillClients(); renderAll(); refreshInsertAfterOptions();
+      if(el("saveClientBtn")) el("saveClientBtn").textContent = "Agregar cliente";
+
+      save();
+      fillClients();
+      renderAll();
       alert("Cliente actualizado");
       return;
     }
+
 const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrder=1;
     if(after){ const prev=client(after); newOrder=prev?Number(prev.order)+1:1; }
     state.clients.filter(c=>c.day===day && Number(c.order)>=newOrder).forEach(c=>c.order=Number(c.order)+1);
@@ -781,7 +781,7 @@ const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrd
     const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],cargar:["Cargar movimiento","Venta, fiado, pago o no compra."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
-  function renderAll(){ setTimeout(injectEditButtons,0); renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
+  function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
   async function initAdmin(){ await cloudLoadData(); fillBase(); renderAll(); updatePriceHint(); }
 
   async function bootPublic(){
@@ -811,57 +811,4 @@ const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrd
   (async function startApp(){
     if(!(await bootPublic())){ currentUser ? (showApp(),initAdmin()) : showLogin(); }
   })();
-});
-
-function injectEditButtons(){
-  document.querySelectorAll("[data-delclient]").forEach(btn=>{
-    if(btn.parentElement && !btn.parentElement.querySelector("[data-edit-client]")){
-      const edit = document.createElement("button");
-      edit.textContent = "Editar";
-      edit.className = "edit-client";
-      edit.dataset.editClient = btn.dataset.delclient;
-      btn.parentElement.insertBefore(edit, btn);
-    }
-  });
-}
-document.addEventListener("click", e=>{
-  if(e.target.matches("[data-edit-client]")){
-    startEditClient(e.target.dataset.editClient);
-  }
-});
-
-
-function injectEditButtons(){
-  const possibleDeleteButtons = Array.from(document.querySelectorAll("button")).filter(btn=>{
-    const txt = (btn.textContent || "").trim().toLowerCase();
-    return txt === "eliminar" && !btn.parentElement.querySelector(".edit-btn");
-  });
-
-  possibleDeleteButtons.forEach(btn=>{
-    let id = btn.dataset.delclient || btn.dataset.clientDelete || btn.getAttribute("data-delclient") || "";
-    if(!id){
-      const row = btn.closest("tr");
-      if(row){
-        const codeCell = row.querySelector("td");
-        const code = codeCell ? codeCell.textContent.trim() : "";
-        const c = state.clients.find(x => String(x.code) === String(code));
-        if(c) id = c.id;
-      }
-    }
-    if(!id) return;
-
-    const edit = document.createElement("button");
-    edit.textContent = "Editar";
-    edit.className = "edit-btn";
-    edit.dataset.editClient = id;
-    edit.onclick = () => startEditClient(id);
-    btn.parentElement.insertBefore(edit, btn);
-  });
-}
-
-document.addEventListener("click", e=>{
-  if(e.target.matches(".edit-btn,[data-edit-client]")){
-    const id = e.target.dataset.editClient;
-    if(id) startEditClient(id);
-  }
 });

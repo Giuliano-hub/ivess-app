@@ -68,18 +68,7 @@ button[data-view="movimiento"], button[data-view="movement"], .nav[data-view="mo
 }
 button[data-view="movimiento"], button[data-view="movement"], .nav[data-view="movimiento"], .nav[data-view="movement"]{display:none!important}
 
-.edit-client{
-  background:#e8f3ff!important;
-  color:#075ca8!important;
-  border:1px solid #8ec5ff!important;
-  border-radius:10px!important;
-  padding:8px 10px!important;
-  font-weight:900!important;
-  cursor:pointer!important;
-  margin-right:6px!important;
-}
-
-.edit-btn{
+.edit-row{
   background:#e8f3ff!important;
   color:#075ca8!important;
   border:1px solid #8ec5ff!important;
