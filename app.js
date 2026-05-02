@@ -252,14 +252,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function recalcOrders(day){ state.clients.filter(c=>c.day===day).sort((a,b)=>Number(a.order)-Number(b.order)).forEach((c,i)=>c.order=i+1); }
   function updateCodePreview(){ el("clientCodePreview").value=generateNextCode(); }
-  function getUnitPrice(clientId, product){ const c=client(clientId); return Number(state.priceLists[c?.priceList]?.prices?.[product] || 0); }
-  function updatePriceHint(){
-    const c=client(el("movClient").value), product=el("movProduct").value, qty=Number(el("movQty").value||1);
-    if(!c) return;
-    if(el("movType").value==="pago"){ el("movProduct").value="Pago / Saldo"; el("priceHint").textContent=`${c.name} · Pago de deuda manual. Deuda actual: ${money(debt(c.id))}${credit(c.id)>0 ? " · Saldo a favor: "+money(credit(c.id)) : ""}`; return; }
-    const total=getUnitPrice(c.id,product)*qty;
-    el("priceHint").textContent=`${c.name} · ${priceListName(c.priceList)} · ${product}: ${money(getUnitPrice(c.id,product))} x ${qty} = ${money(total)}. Si es venta cobrada, cargá lo que pagó; si paga exacto no genera saldo a favor.`;
-    if(el("movType").value!=="no_compra") el("movAmount").value=total;
+  function getUnitPrice(clientId, product){
+    const c = client(clientId);
+    const listId = String(c?.priceList || c?.pricelist || "1");
+    return Number(state.priceLists?.[listId]?.prices?.[product] || 0);
   }
 
   function renderDashboard(){
@@ -696,6 +692,10 @@ const c =
 
   function closeRouteDay(){
     renderCloseRouteSummary();
+    routeModeIndex = 0;
+    routeCart = [];
+    routePayments = [{pay:"Efectivo", mode:"total", amount:0}];
+    saveRouteModeState();
     const list = closeRouteDebtors().filter(c=>!c.sentToday);
     if(!list.length) return alert("No hay recordatorios pendientes para este día.");
     alert(`Se preparó la lista de ${list.length} cliente/s con saldo pendiente. Usá el botón WhatsApp de cada uno para enviar el recordatorio.`);
@@ -1216,7 +1216,8 @@ function applyRolePermissions(){
     document.querySelectorAll(".nav,.view").forEach(x=>x.classList.remove("active"));
     document.querySelector(`.nav[data-view="${view}"]`)?.classList.add("active");
     el(view).classList.add("active");
-    const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
+    const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],cerrarRuta:["Cerrar hoja de ruta","Recordatorios de deuda del día"],
+      ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
   function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); applyRolePermissions(); }
@@ -1244,7 +1245,11 @@ function applyRolePermissions(){
       const val = el("portalClient").value;
       openWhatsappClient(val);
     };
-  el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();}; if(el("importCsvBtn")) el("importCsvBtn").onclick=importClientsCsv; if(el("closeRouteBtn")) el("closeRouteBtn").onclick=closeRouteDay;
+  el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();}; if(el("importCsvBtn")) el("importCsvBtn").onclick=importClientsCsv; 
+if(el("closeRouteBtn")) el("closeRouteBtn").onclick=closeRouteDay;
+if(el("closeRouteClearBtn")) el("closeRouteClearBtn").onclick=()=>{ if(el("closeRouteSummary")) el("closeRouteSummary").innerHTML=""; };
+if(el("closeRouteDaySelect")) el("closeRouteDaySelect").onchange=renderCloseRouteSummary;
+ if(el("closeRouteBtn")) el("closeRouteBtn").onclick=closeRouteDay;
   el("startRouteModeBtn").onclick=()=>{ routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); };
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };
 
