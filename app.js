@@ -1392,34 +1392,66 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-function openCloseRouteForced(){
-  // Desactiva nav activo
+
+
+// V11.5 cierre de ruta: pantalla propia sin romper navegación
+function closeRouteShowScreen(){
   document.querySelectorAll(".nav").forEach(b=>b.classList.remove("active"));
+  const menuBtn = document.getElementById("openCloseRouteMenuBtn");
+  if(menuBtn) menuBtn.classList.add("active");
 
-  const btn = document.getElementById("openCloseRouteMenuBtn");
-  if(btn) btn.classList.add("active");
-
-  // Oculta todas las vistas conocidas
   document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));
-
-  // Muestra la pantalla de cierre
   const screen = document.getElementById("closeRouteScreen");
   if(screen) screen.classList.remove("hidden");
 
-  // Títulos
   if(document.getElementById("viewTitle")) document.getElementById("viewTitle").textContent = "Cerrar hoja de ruta";
   if(document.getElementById("viewSubtitle")) document.getElementById("viewSubtitle").textContent = "Recordatorios y cierre del reparto.";
 
   if(typeof simpleCloseRender === "function") simpleCloseRender();
 }
 
+function closeRouteHideScreen(){
+  const screen = document.getElementById("closeRouteScreen");
+  if(screen) screen.classList.add("hidden");
+}
+
+function simpleClosePrepareFixed(){
+  // Reinicia la ruta al cliente 1
+  if(typeof routeModeIndex !== "undefined") routeModeIndex = 0;
+  if(typeof routeCart !== "undefined") routeCart = [];
+  if(typeof routePayments !== "undefined") routePayments = [{pay:"Efectivo", mode:"total", amount:0}];
+  if(typeof saveRouteModeState === "function") saveRouteModeState();
+
+  if(typeof simpleCloseRender === "function") simpleCloseRender();
+
+  alert("Hoja de ruta cerrada. El reparto queda preparado para arrancar desde el primer cliente.");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  const menuBtn = document.getElementById("openCloseRouteMenuBtn");
-  if(menuBtn) menuBtn.onclick = openCloseRouteForced;
+  // Botón propio del menú
+  const closeMenuBtn = document.getElementById("openCloseRouteMenuBtn");
+  if(closeMenuBtn) closeMenuBtn.onclick = closeRouteShowScreen;
+
+  // Cuando se toca cualquier otra pestaña normal, cerramos la pantalla de cierre
+  document.querySelectorAll(".nav").forEach(btn => {
+    if(btn.id !== "openCloseRouteMenuBtn"){
+      btn.addEventListener("click", () => {
+        closeRouteHideScreen();
+      });
+    }
+  });
 
   const ownDay = document.getElementById("closeRouteOwnDay");
-  if(ownDay) ownDay.onchange = () => { if(typeof simpleCloseRender === "function") simpleCloseRender(); };
+  if(ownDay) ownDay.onchange = () => {
+    if(typeof simpleCloseRender === "function") simpleCloseRender();
+  };
 
   const prep = document.getElementById("simpleCloseRouteBtn");
-  if(prep) prep.onclick = () => { if(typeof simpleClosePrepare === "function") simpleClosePrepare(); };
+  if(prep) prep.onclick = simpleClosePrepareFixed;
+
+  const clear = document.getElementById("simpleCloseClearBtn");
+  if(clear) clear.onclick = () => {
+    const box = document.getElementById("simpleCloseRouteSummary");
+    if(box) box.innerHTML = "";
+  };
 });

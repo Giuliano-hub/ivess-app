@@ -176,3 +176,7 @@ button[data-view="moves"],
 #closeRouteScreen.hidden{display:none!important}
 #closeRouteScreen:not(.hidden){display:block!important}
 #closeRouteScreen .simple-close-card{display:block!important}
+
+/* V11.5: la pantalla de cierre no contamina otras vistas */
+#closeRouteScreen.hidden{display:none!important}
+#closeRouteScreen:not(.hidden){display:block!important}
