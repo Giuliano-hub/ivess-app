@@ -78,3 +78,11 @@ button[data-view="movimiento"], button[data-view="movement"], .nav[data-view="mo
   cursor:pointer!important;
   margin-right:6px!important;
 }
+
+/* V8.6: simplificar clientes y navegación */
+button[data-view="movimiento"], button[data-view="movement"],
+[data-view="movimiento"], [data-view="movement"],
+button[data-view="moves"], [data-view="moves"]{
+  display:none!important;
+}
+#clientOrder, label[for="clientOrder"]{display:none!important}

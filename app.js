@@ -225,10 +225,24 @@ document.addEventListener("DOMContentLoaded", function () {
     fillInsertAfter();
   }
   function fillInsertAfter(){
-    const day=el("clientDay").value||"Lunes";
-    const list=state.clients.filter(c=>c.day===day).sort((a,b)=>Number(a.order)-Number(b.order));
-    el("clientInsertAfter").innerHTML = [`<option value="">Al principio de la ruta de ${day}</option>`].concat(list.map(c=>`<option value="${c.id}">Después de #${c.order} · ${c.code} · ${c.name}</option>`)).join("");
-    updateCalculatedOrder();
+    const afterEl = el("clientInsertAfter");
+    const dayEl = el("clientDay");
+    if(!afterEl || !dayEl) return;
+
+    const d = dayEl.value || "Lunes";
+    const current = afterEl.value || "";
+
+    const opts = state.clients
+      .filter(c => c.day === d && String(c.id) !== String(editingClientId || ""))
+      .sort((a,b)=>Number(a.order||0)-Number(b.order||0));
+
+    afterEl.innerHTML =
+      `<option value="">Al principio de ${d}</option>` +
+      opts.map(c=>`<option value="${c.id}">${c.order || ""} - ${c.code} - ${c.name}</option>`).join("");
+
+    if([...afterEl.options].some(o=>o.value===current)){
+      afterEl.value = current;
+    }
   }
   function updateCalculatedOrder(){
     const id=el("clientInsertAfter").value;
@@ -551,11 +565,10 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 
     el("clientTable").innerHTML=table(
-      ["Código","Día","Orden","Cliente","Lista","Frío/calor","Teléfono","Cuenta","Link","Acción"],
+      ["Código","Día","Cliente","Lista","Frío/calor","Teléfono","Cuenta","Link","Acción"],
       rows.map(c=>[
         c.code,
         c.day,
-        c.order,
         `<b>${c.name}</b><br><small>${c.address}</small>`,
         priceListName(c.priceList),
         `${c.cooler==="si"?"Sí":"No"}${c.coolerDesc?`<br><small>${c.coolerDesc}</small>`:""}`,
@@ -573,6 +586,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-link]").forEach(b=>b.onclick=()=>copyText(clientLink(b.dataset.link)));
     document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteClient(b.dataset.delete));
     document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>startEditClient(b.dataset.edit));
+    fillInsertAfter();
   }
   function renderDebts(){
     const totalDebt=state.clients.reduce((s,c)=>s+debt(c.id),0), totalCredit=state.clients.reduce((s,c)=>s+credit(c.id),0);
@@ -802,7 +816,7 @@ const day=el("clientDay").value, after=el("clientInsertAfter").value; let newOrd
   ["clientDay","clientInsertAfter"].forEach(id=>el(id).addEventListener("change",()=>{fillInsertAfter();renderAll();}));
   ["movClient","movProduct","movQty","movType"].forEach(id=>el(id).addEventListener("input",updatePriceHint));
   el("loginBtn").onclick=login; el("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")login();}); el("logoutBtn").onclick=logout;
-  el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value));
+  el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; if(el("clientDay")) el("clientDay").addEventListener("change", fillInsertAfter); el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value));
   el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();};
   el("startRouteModeBtn").onclick=()=>{ routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); };
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };
