@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="version-badge-v8">V11.2 - Cierre en menú</div>
+  <div class="version-badge-v8">V11.3 - Cierre funcional</div>
   <div id="loginScreen" class="login-screen hidden">
     <div class="login-card">
       <div class="login-logo">IV</div>
@@ -35,7 +35,7 @@
         <button class="nav active" data-view="dashboard">Panel general</button>
         <button class="nav" data-view="ruta">Ruta del día</button>
         <button class="nav" data-view="hoja">Hoja de ruta</button>
-          <button class="nav" data-view="cierreRuta">Cerrar hoja de ruta</button>
+          <button class="nav" data-view="cerrarRuta">Cerrar hoja de ruta</button>
         <button class="nav" data-view="clientes">Clientes</button>
         <button class="nav" data-view="fiados">Fiados</button>
         <button class="nav admin-only" data-view="ventas">Venta general</button>
@@ -243,7 +243,7 @@
         <div id="clientPortal" class="portal"></div>
       </section>
     
-      <section id="view-cierreRuta" class="view hidden">
+      <section id="cerrarRuta" class="view hidden">
         <div class="toolbar">
           <label>Día
             <select id="closeRouteOwnDay">

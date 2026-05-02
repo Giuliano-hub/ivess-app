@@ -166,3 +166,8 @@ button[data-view="moves"],
 @media(max-width:700px){.simple-close-row{grid-template-columns:1fr;gap:5px}}
 
 #view-cierreRuta .simple-close-card{display:block!important}
+
+/* V11.3: cierre de ruta visible en menú */
+#cerrarRuta .simple-close-card{display:block!important}
+#cerrarRuta{display:block}
+#cerrarRuta.hidden{display:none!important}
