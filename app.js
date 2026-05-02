@@ -584,11 +584,22 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function openWhatsappClient(clientId){
-    const c = client(clientId);
+    let raw = String(clientId || "").trim();
+    // Si llega algo como "C002 - Luis", nos quedamos con el código.
+    const codeFromLabel = raw.includes(" - ") ? raw.split(" - ")[0].trim() : raw;
+
+    let c =
+      client(raw) ||
+      state.clients.find(x => String(x.id) === raw) ||
+      state.clients.find(x => String(x.code) === raw) ||
+      state.clients.find(x => String(x.code) === codeFromLabel);
+
     if(!c) return alert("Cliente no encontrado.");
+
     const phone = cleanWhatsappPhone(c.phone);
     if(!phone) return alert("Este cliente no tiene teléfono cargado.");
-    const msg = encodeURIComponent(whatsappClientMessage(clientId));
+
+    const msg = encodeURIComponent(whatsappClientMessage(c.id));
     const url = `https://wa.me/${phone}?text=${msg}`;
     window.open(url, "_blank");
   }
@@ -1074,7 +1085,10 @@ function applyRolePermissions(){
   ["clientDay","clientInsertAfter"].forEach(id=>el(id).addEventListener("change",()=>{fillInsertAfter();renderAll();}));
   ["movClient","movProduct","movQty","movType"].forEach(id=>el(id).addEventListener("input",updatePriceHint));
   el("loginBtn").onclick=login; el("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")login();}); el("logoutBtn").onclick=logout;
-  el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; if(el("clientDay")) el("clientDay").addEventListener("change", fillInsertAfter); el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value)); if(el("sendPortalWhatsappBtn")) el("sendPortalWhatsappBtn").onclick=()=>openWhatsappClient(el("portalClient").value);
+  el("saveMovementBtn").onclick=addMovement; el("saveClientBtn").onclick=addClient; if(el("clientDay")) el("clientDay").addEventListener("change", fillInsertAfter); el("savePricesBtn").onclick=savePrices; el("copyPortalLinkBtn").onclick=()=>copyText(clientLink(el("portalClient").value)); if(el("sendPortalWhatsappBtn")) el("sendPortalWhatsappBtn").onclick=()=>{
+      const val = el("portalClient").value;
+      openWhatsappClient(val);
+    };
   el("todaySalesBtn").onclick=()=>{el("salesDate").value=todayISO();renderAll();}; if(el("importCsvBtn")) el("importCsvBtn").onclick=importClientsCsv;
   el("startRouteModeBtn").onclick=()=>{ routeCart=[]; routePayments=[{pay:"Efectivo",mode:"total",amount:0}]; saveRouteModeState(); renderAll(); };
   el("resetDemoBtn").onclick=()=>{ if(confirm("¿Reiniciar demo? Se borran datos locales.")){ localStorage.removeItem("ivessStableV5"); state=JSON.parse(JSON.stringify(demo)); save(); initAdmin(); } };
