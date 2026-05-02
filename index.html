@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="version-badge-v8">V11 - Cierre simple estable</div>
+  <div class="version-badge-v8">V11.2 - Cierre en menú</div>
   <div id="loginScreen" class="login-screen hidden">
     <div class="login-card">
       <div class="login-logo">IV</div>
@@ -35,6 +35,7 @@
         <button class="nav active" data-view="dashboard">Panel general</button>
         <button class="nav" data-view="ruta">Ruta del día</button>
         <button class="nav" data-view="hoja">Hoja de ruta</button>
+          <button class="nav" data-view="cierreRuta">Cerrar hoja de ruta</button>
         <button class="nav" data-view="clientes">Clientes</button>
         <button class="nav" data-view="fiados">Fiados</button>
         <button class="nav admin-only" data-view="ventas">Venta general</button>
@@ -114,20 +115,7 @@
 <button class="primary" id="closeRouteViewBtn">Cerrar vista</button>
 <div class="close-route-summary"></div>
         </div>
-
-            
-        <div class="card simple-close-card">
-          <div class="card-head">
-            <div>
-              <h3>Cerrar hoja de ruta</h3>
-              <p class="muted">Prepara recordatorios para clientes del día con saldo pendiente y reinicia la ruta al cliente 1.</p>
-            </div>
-            <button class="primary" id="simpleCloseRouteBtn">Preparar cierre</button>
-          </div>
-          <div id="simpleCloseRouteSummary" class="simple-close-summary"></div>
-        </div>
-
-            <div id="routeModeClient"></div>
+<div id="routeModeClient"></div>
           </div>
         </div>
         <div id="routeSheet" class="route-sheet"></div>
@@ -254,6 +242,38 @@
         </div>
         <div id="clientPortal" class="portal"></div>
       </section>
+    
+      <section id="view-cierreRuta" class="view hidden">
+        <div class="toolbar">
+          <label>Día
+            <select id="closeRouteOwnDay">
+              <option>Lunes</option>
+              <option>Martes</option>
+              <option>Miércoles</option>
+              <option>Jueves</option>
+              <option>Viernes</option>
+              <option>Sábado</option>
+              <option>Domingo</option>
+            </select>
+          </label>
+        </div>
+        
+
+            
+        <div class="card simple-close-card">
+          <div class="card-head">
+            <div>
+              <h3>Cerrar hoja de ruta</h3>
+              <p class="muted">Prepara recordatorios para clientes del día con saldo pendiente y reinicia la ruta al cliente 1.</p>
+            </div>
+            <button class="primary" id="simpleCloseRouteBtn">Preparar cierre</button>
+          </div>
+          <div id="simpleCloseRouteSummary" class="simple-close-summary"></div>
+        </div>
+
+            
+      </section>
+
     </main>
   </div>
 

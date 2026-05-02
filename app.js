@@ -477,6 +477,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function simpleCloseDay(){
+    if(el("closeRouteOwnDay")) return el("closeRouteOwnDay").value || "Lunes";
     if(el("sheetDay")) return el("sheetDay").value || "Lunes";
     if(el("routeDay")) return el("routeDay").value || "Lunes";
     return "Lunes";
@@ -1315,7 +1316,7 @@ function applyRolePermissions(){
     document.querySelectorAll(".nav,.view").forEach(x=>x.classList.remove("active"));
     document.querySelector(`.nav[data-view="${view}"]`)?.classList.add("active");
     el(view).classList.add("active");
-    const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
+    const t={cierreRuta:["Cerrar hoja de ruta","Recordatorios y cierre del reparto"],dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
   function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); simpleCloseRender(); applyRolePermissions(); }
@@ -1367,4 +1368,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("simpleCloseRouteBtn");
   if(btn) btn.onclick = simpleClosePrepare;
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const ownDay = document.getElementById("closeRouteOwnDay");
+  if(ownDay) ownDay.onchange = simpleCloseRender;
 });

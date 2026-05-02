@@ -164,3 +164,5 @@ button[data-view="moves"],
 .simple-close-wa{background:#e8fff1!important;color:#0b7a3b!important;border:1px solid #8ee0af!important;border-radius:10px!important;padding:9px 11px!important;font-weight:900!important;cursor:pointer!important}
 .simple-close-sent{background:#f8fafc!important;color:#334155!important;border:1px solid var(--line)!important;border-radius:10px!important;padding:9px 11px!important;font-weight:900!important;cursor:pointer!important;margin-left:6px}
 @media(max-width:700px){.simple-close-row{grid-template-columns:1fr;gap:5px}}
+
+#view-cierreRuta .simple-close-card{display:block!important}
