@@ -155,28 +155,40 @@ button[data-view="moves"],
   .close-route-row{grid-template-columns:1fr;gap:5px}
 }
 
-/* V11 cierre simple dentro de Hoja de ruta */
-.simple-close-card{margin-bottom:18px;border:2px solid #dbeafe!important;background:#fbfdff!important}
+/* V12 cierre simple y estable dentro de Hoja de ruta */
+.simple-close-card{
+  margin:18px 0;
+  border:2px solid #dbeafe!important;
+  background:#fbfdff!important;
+}
 .simple-close-summary{margin-top:10px}
-.simple-close-row{display:grid;grid-template-columns:1.3fr .7fr auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.simple-close-row{
+  display:grid;
+  grid-template-columns:1.3fr .7fr auto;
+  gap:10px;
+  align-items:center;
+  padding:12px 0;
+  border-bottom:1px solid var(--line);
+}
 .simple-close-row:last-child{border-bottom:0}
 .simple-close-debt{color:#c0362c;font-weight:900;font-size:17px}
-.simple-close-wa{background:#e8fff1!important;color:#0b7a3b!important;border:1px solid #8ee0af!important;border-radius:10px!important;padding:9px 11px!important;font-weight:900!important;cursor:pointer!important}
-.simple-close-sent{background:#f8fafc!important;color:#334155!important;border:1px solid var(--line)!important;border-radius:10px!important;padding:9px 11px!important;font-weight:900!important;cursor:pointer!important;margin-left:6px}
+.simple-close-wa{
+  background:#e8fff1!important;
+  color:#0b7a3b!important;
+  border:1px solid #8ee0af!important;
+  border-radius:10px!important;
+  padding:9px 11px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+}
+.simple-close-sent{
+  background:#f8fafc!important;
+  color:#334155!important;
+  border:1px solid var(--line)!important;
+  border-radius:10px!important;
+  padding:9px 11px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+  margin-left:6px;
+}
 @media(max-width:700px){.simple-close-row{grid-template-columns:1fr;gap:5px}}
-
-#view-cierreRuta .simple-close-card{display:block!important}
-
-/* V11.3: cierre de ruta visible en menú */
-#cerrarRuta .simple-close-card{display:block!important}
-#cerrarRuta{display:block}
-#cerrarRuta.hidden{display:none!important}
-
-/* V11.4 cierre forzado */
-#closeRouteScreen.hidden{display:none!important}
-#closeRouteScreen:not(.hidden){display:block!important}
-#closeRouteScreen .simple-close-card{display:block!important}
-
-/* V11.5: la pantalla de cierre no contamina otras vistas */
-#closeRouteScreen.hidden{display:none!important}
-#closeRouteScreen:not(.hidden){display:block!important}

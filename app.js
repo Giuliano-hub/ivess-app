@@ -467,22 +467,17 @@ document.addEventListener("DOMContentLoaded", function () {
     try { return JSON.parse(localStorage.getItem("ivessSimpleCloseSent") || "{}"); }
     catch(e){ return {}; }
   }
-
   function simpleCloseSaveStore(store){
     localStorage.setItem("ivessSimpleCloseSent", JSON.stringify(store || {}));
   }
-
   function simpleCloseToday(){
     return new Date().toISOString().slice(0,10);
   }
-
   function simpleCloseDay(){
-    if(el("closeRouteOwnDay")) return el("closeRouteOwnDay").value || "Lunes";
     if(el("sheetDay")) return el("sheetDay").value || "Lunes";
     if(el("routeDay")) return el("routeDay").value || "Lunes";
     return "Lunes";
   }
-
   function simpleCloseMessage(clientId){
     const c = client(clientId);
     if(!c) return "";
@@ -491,7 +486,6 @@ document.addEventListener("DOMContentLoaded", function () {
       link +
       "\\n\\nActualmente figura un saldo pendiente. Este mensaje forma parte de nuestros recordatorios automáticos para mantener la cuenta al día.";
   }
-
   function simpleCloseDebtors(){
     const d = simpleCloseDay();
     const sent = simpleCloseStore();
@@ -501,11 +495,25 @@ document.addEventListener("DOMContentLoaded", function () {
       .filter(c => c.currentDebt > 0)
       .sort((a,b) => b.currentDebt - a.currentDebt);
   }
-
+  function simpleCloseMarkSent(clientId){
+    const store = simpleCloseStore();
+    store[String(clientId)] = simpleCloseToday();
+    simpleCloseSaveStore(store);
+    simpleCloseRender();
+  }
+  function simpleCloseWhatsapp(clientId){
+    const raw = String(clientId || "").trim();
+    const c = client(raw) || state.clients.find(x => String(x.id) === raw || String(x.code) === raw);
+    if(!c) return alert("Cliente no encontrado.");
+    const phone = cleanWhatsappPhone(c.phone);
+    if(!phone) return alert("Este cliente no tiene teléfono cargado.");
+    const msg = encodeURIComponent(simpleCloseMessage(c.id));
+    window.open("https://wa.me/" + phone + "?text=" + msg, "_blank");
+    simpleCloseMarkSent(c.id);
+  }
   function simpleCloseRender(){
     const box = el("simpleCloseRouteSummary");
     if(!box) return;
-
     const d = simpleCloseDay();
     const list = simpleCloseDebtors();
 
@@ -529,38 +537,17 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-simple-close-wa]").forEach(b => b.onclick = () => simpleCloseWhatsapp(b.dataset.simpleCloseWa));
     document.querySelectorAll("[data-simple-close-sent]").forEach(b => b.onclick = () => simpleCloseMarkSent(b.dataset.simpleCloseSent));
   }
-
-  function simpleCloseMarkSent(clientId){
-    const store = simpleCloseStore();
-    store[String(clientId)] = simpleCloseToday();
-    simpleCloseSaveStore(store);
-    simpleCloseRender();
-  }
-
-  function simpleCloseWhatsapp(clientId){
-    const raw = String(clientId || "").trim();
-    const c = client(raw) || state.clients.find(x => String(x.id) === raw || String(x.code) === raw);
-    if(!c) return alert("Cliente no encontrado.");
-    const phone = cleanWhatsappPhone(c.phone);
-    if(!phone) return alert("Este cliente no tiene teléfono cargado.");
-    const msg = encodeURIComponent(simpleCloseMessage(c.id));
-    window.open("https://wa.me/" + phone + "?text=" + msg, "_blank");
-    simpleCloseMarkSent(c.id);
-  }
-
   function simpleCloseResetRoute(){
     if(typeof routeModeIndex !== "undefined") routeModeIndex = 0;
     if(typeof routeCart !== "undefined") routeCart = [];
     if(typeof routePayments !== "undefined") routePayments = [{pay:"Efectivo", mode:"total", amount:0}];
     if(typeof saveRouteModeState === "function") saveRouteModeState();
   }
-
   function simpleClosePrepare(){
     simpleCloseResetRoute();
     simpleCloseRender();
     alert("Hoja de ruta cerrada. El reparto queda preparado para arrancar desde el primer cliente.");
   }
-
 
 function renderRouteMode(){
     const list = getRouteModeClients();
@@ -1316,7 +1303,7 @@ function applyRolePermissions(){
     document.querySelectorAll(".nav,.view").forEach(x=>x.classList.remove("active"));
     document.querySelector(`.nav[data-view="${view}"]`)?.classList.add("active");
     el(view).classList.add("active");
-    const t={cerrarRuta:["Cerrar hoja de ruta","Recordatorios y cierre del reparto"],dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
+    const t={dashboard:["Panel general","Resumen de ventas, cobros y fiados."],ruta:["Ruta del día","Clientes ordenados por día."],hoja:["Hoja de ruta","Vista rápida para celular."],clientes:["Clientes","Alta, códigos, frío/calor y links."],fiados:["Fiados","Detalle por cliente y por día."],ventas:["Venta general","Reporte diario para comparar remitos."],precios:["Listas de precios","IVESS, frío/calor y Pirozi."],portal:["Vista cliente","Pantalla pública del cliente."]};
     el("viewTitle").textContent=t[view][0]; el("viewSubtitle").textContent=t[view][1]; renderAll();
   }
   function renderAll(){ renderDashboard(); renderRoute(); renderRouteMode(); renderRouteSheet(); renderClients(); renderDebts(); renderSales(); renderPrices(); renderPortal(); updateCodePreview(); simpleCloseRender(); applyRolePermissions(); }
@@ -1368,90 +1355,4 @@ document.addEventListener("DOMContentLoaded", ()=>{
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("simpleCloseRouteBtn");
   if(btn) btn.onclick = simpleClosePrepare;
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-  const ownDay = document.getElementById("closeRouteOwnDay");
-  if(ownDay) ownDay.onchange = simpleCloseRender;
-});
-
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll('[data-view="cerrarRuta"], [data-view="cierreRuta"]').forEach(btn => {
-    btn.onclick = () => {
-      if(typeof openView === "function") openView(btn.dataset.view);
-      setTimeout(()=>{ if(typeof simpleCloseRender === "function") simpleCloseRender(); }, 50);
-    };
-  });
-
-  const ownDay = document.getElementById("closeRouteOwnDay");
-  if(ownDay) ownDay.onchange = simpleCloseRender;
-
-  const btn = document.getElementById("simpleCloseRouteBtn");
-  if(btn) btn.onclick = simpleClosePrepare;
-});
-
-
-
-
-// V11.5 cierre de ruta: pantalla propia sin romper navegación
-function closeRouteShowScreen(){
-  document.querySelectorAll(".nav").forEach(b=>b.classList.remove("active"));
-  const menuBtn = document.getElementById("openCloseRouteMenuBtn");
-  if(menuBtn) menuBtn.classList.add("active");
-
-  document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));
-  const screen = document.getElementById("closeRouteScreen");
-  if(screen) screen.classList.remove("hidden");
-
-  if(document.getElementById("viewTitle")) document.getElementById("viewTitle").textContent = "Cerrar hoja de ruta";
-  if(document.getElementById("viewSubtitle")) document.getElementById("viewSubtitle").textContent = "Recordatorios y cierre del reparto.";
-
-  if(typeof simpleCloseRender === "function") simpleCloseRender();
-}
-
-function closeRouteHideScreen(){
-  const screen = document.getElementById("closeRouteScreen");
-  if(screen) screen.classList.add("hidden");
-}
-
-function simpleClosePrepareFixed(){
-  // Reinicia la ruta al cliente 1
-  if(typeof routeModeIndex !== "undefined") routeModeIndex = 0;
-  if(typeof routeCart !== "undefined") routeCart = [];
-  if(typeof routePayments !== "undefined") routePayments = [{pay:"Efectivo", mode:"total", amount:0}];
-  if(typeof saveRouteModeState === "function") saveRouteModeState();
-
-  if(typeof simpleCloseRender === "function") simpleCloseRender();
-
-  alert("Hoja de ruta cerrada. El reparto queda preparado para arrancar desde el primer cliente.");
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  // Botón propio del menú
-  const closeMenuBtn = document.getElementById("openCloseRouteMenuBtn");
-  if(closeMenuBtn) closeMenuBtn.onclick = closeRouteShowScreen;
-
-  // Cuando se toca cualquier otra pestaña normal, cerramos la pantalla de cierre
-  document.querySelectorAll(".nav").forEach(btn => {
-    if(btn.id !== "openCloseRouteMenuBtn"){
-      btn.addEventListener("click", () => {
-        closeRouteHideScreen();
-      });
-    }
-  });
-
-  const ownDay = document.getElementById("closeRouteOwnDay");
-  if(ownDay) ownDay.onchange = () => {
-    if(typeof simpleCloseRender === "function") simpleCloseRender();
-  };
-
-  const prep = document.getElementById("simpleCloseRouteBtn");
-  if(prep) prep.onclick = simpleClosePrepareFixed;
-
-  const clear = document.getElementById("simpleCloseClearBtn");
-  if(clear) clear.onclick = () => {
-    const box = document.getElementById("simpleCloseRouteSummary");
-    if(box) box.innerHTML = "";
-  };
 });
