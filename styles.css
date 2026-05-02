@@ -155,10 +155,9 @@ button[data-view="moves"],
   .close-route-row{grid-template-columns:1fr;gap:5px}
 }
 
-/* V10.8 cerrar hoja de ruta independiente */
-.close-route-card-old{display:none!important}
-#view-cerrarRuta .close-route-card{display:block!important}
-.close-route-card{margin-bottom:18px;border:2px solid #dbeafe!important;background:#fbfdff!important}
+/* V10.9 cierre de ruta final */
+.close-route-card{display:none!important}
+.close-route-final-card{margin-bottom:18px;border:2px solid #dbeafe!important;background:#fbfdff!important}
 .close-route-summary{margin-top:10px}
 .close-route-row{display:grid;grid-template-columns:1.3fr .7fr auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .close-route-row:last-child{border-bottom:0}
