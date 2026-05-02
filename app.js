@@ -602,11 +602,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const msg = encodeURIComponent(
 `Hola ${c.name}! 
-Te compartimos tu link para que puedas ver tu cuenta, saldo y movimientos 
+Te compartimos tu link para que puedas ver tu cuenta, saldo y movimientos actualizados en todo momento
 
 ${link}
 
-Cualquier duda nos escribís por acá.`
+Podes guardarlo para consultarlo cuando quieras. Cualquier duda nos escribís por acá.`
     );
 
     window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
