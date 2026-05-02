@@ -601,12 +601,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const link = clientLink(c.id);
 
     const msg = encodeURIComponent(
-`Hola ${c.name}! 
-Te compartimos tu link para que puedas ver tu cuenta, saldo y movimientos actualizados en todo momento
+`Hola ${c.name}! 💧
+Te compartimos tu link para que puedas ver tu cuenta, saldo y movimientos 👇
 
 ${link}
 
-Podes guardarlo para consultarlo cuando quieras. Cualquier duda nos escribís por acá.`
+Cualquier duda nos escribís por acá.`
     );
 
     window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
@@ -907,7 +907,36 @@ async function addClient(){
     alert("Cliente agregado");
   }
   async function deleteClient(id){ const c=client(id); if(!isAdmin()) return; if(confirm(`¿Eliminar a ${c?.name}? También se borrarán sus movimientos.`)){ await cloudDeleteClient(id); state.clients=state.clients.filter(c=>c.id!==id); state.moves=state.moves.filter(m=>m.clientId!==id); save(); fillClients(); renderAll(); } }
-  async function deleteMove(id){ const m=state.moves.find(x=>x.id==id); if(!m || !canDeleteMove(m)) return alert("No tenés permiso para borrar este movimiento."); const c=client(m.clientId)||{}; if(confirm(`¿Eliminar ${label(m.type)} de ${c.name} por ${money(m.amount)}?`)){ await cloudDeleteMove(id); state.moves=state.moves.filter(x=>x.id!=id); save(); renderAll(); } }
+  async function deleteMove(id){
+    const m = state.moves.find(x=>String(x.id)===String(id));
+    if(!m || !canDeleteMove(m)) return alert("No tenés permiso para borrar este movimiento.");
+
+    const c = client(m.clientId) || {};
+    if(!confirm(`¿Eliminar ${label(m.type)} de ${c.name || "cliente"} por ${money(m.amount)}?`)) return;
+
+    if(typeof supabaseDb !== "undefined" && supabaseDb){
+      const numericId = Number(id);
+      if(Number.isFinite(numericId)){
+        const { error } = await supabaseDb.from("moves").delete().eq("id", numericId);
+        if(error){
+          console.error(error);
+          alert("No pude borrar el movimiento en la base. Probá de nuevo.");
+          return;
+        }
+      }
+    }
+
+    state.moves = state.moves.filter(x=>String(x.id)!==String(id));
+    save();
+
+    // Recarga desde Supabase para que app y link cliente queden iguales.
+    if(typeof cloudLoadData === "function"){
+      await cloudLoadData();
+      fillBase();
+    }
+
+    renderAll();
+  }
   function savePrices(){ if(!isAdmin()) return alert("Solo Giuli puede modificar precios."); document.querySelectorAll("[data-price-list]").forEach(inp=>{state.priceLists[inp.dataset.priceList].prices[inp.dataset.product]=Number(inp.value||0);}); save(); renderAll(); alert("Precios guardados"); }
   function prefill(id,type){ openView("cargar"); el("movClient").value=id; el("movType").value=type; el("movPay").value="Efectivo"; if(type==="pago") el("movProduct").value="Pago / Saldo"; updatePriceHint(); el("movAmount").focus(); }
   function bindPrefill(){ document.querySelectorAll("[data-prefill]").forEach(b=>b.onclick=()=>{const [id,type]=b.dataset.prefill.split("|"); prefill(id,type);}); }
